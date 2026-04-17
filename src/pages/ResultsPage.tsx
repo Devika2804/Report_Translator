@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2, Download, Share2, Clipboard, Lightbulb, ChevronDown, History, FileText,
   Calendar, Mail, Phone, MessageSquare, Headphones, ShieldCheck, Mic, MessageCircle, X, Send,
-  Plus, Bot, Info, Volume2, Square,
+  Plus, Bot, Info, Volume2, Square, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
