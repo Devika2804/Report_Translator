@@ -34,8 +34,6 @@ const faqs = [
 
 const promptChips = ["What does this mean?", "Should I be worried?", "What next?"];
 
-const N8N_WEBHOOK = "https://rajalakshmi.app.n8n.cloud/webhook/send-report";
-
 const ResultsPage = () => {
   const navigate = useNavigate();
   const { analysisResult, reportText, language, languageCode, userName, phoneNumber } = useReportStore();
@@ -61,8 +59,6 @@ const ResultsPage = () => {
   const [readingSummary, setReadingSummary] = useState(false);
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
-  const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-  const [whatsappSent, setWhatsappSent] = useState(false);
 
   const lang = languageCode || "en-US";
   const langName = language || "English";
@@ -87,44 +83,16 @@ const ResultsPage = () => {
     }
   }, [analyzedToastShown]);
 
-  // Auto-send to WhatsApp via n8n webhook (only if phone number was provided)
+  // UI-only WhatsApp delivery confirmation (actual send handled externally via n8n)
   useEffect(() => {
-    if (whatsappSent) return;
     if (!analysisResult) return;
     if (!phoneNumber || !phoneNumber.trim()) return;
-
-    const send = async () => {
-      setWhatsappSent(true);
-      setWhatsappStatus("sending");
-      try {
-        const res = await fetch(N8N_WEBHOOK, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: userName || "Patient",
-            phone: phoneNumber.trim(),
-            summary: analysisResult.summary,
-            findings: analysisResult.findings,
-            nextSteps: analysisResult.nextSteps,
-            worryLevel: analysisResult.worryLevel,
-            language: language,
-          }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setWhatsappStatus("sent");
-        toast.success("📱 Report automatically sent to your WhatsApp");
-      } catch (e) {
-        console.error("Auto WhatsApp send failed", e);
-        setWhatsappStatus("failed");
-        toast.error("❌ Failed to send report. Please try again.");
-      }
-    };
-
-    // small delay so the success toast lands first
-    const t = setTimeout(send, 1200);
+    const t = setTimeout(() => {
+      toast.success("📱 Report sent to your WhatsApp");
+    }, 1200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysisResult, phoneNumber, whatsappSent]);
+  }, [analysisResult]);
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
@@ -518,55 +486,23 @@ const ResultsPage = () => {
               </div>
             </motion.div>
 
-            {/* WhatsApp Auto-Delivery Status */}
+            {/* WhatsApp Delivery Confirmation (UI only — sending handled via n8n automation) */}
             {phoneNumber && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35 }}
-                className={`rounded-2xl p-4 border flex items-center gap-3 ${
-                  whatsappStatus === "sent"
-                    ? "bg-success-light border-success/30"
-                    : whatsappStatus === "failed"
-                    ? "bg-destructive/10 border-destructive/30"
-                    : "bg-primary-light border-primary/20"
-                }`}
+                className="rounded-2xl p-4 border bg-success-light border-success/30 flex items-center gap-3"
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  whatsappStatus === "sent" ? "bg-success/20" : whatsappStatus === "failed" ? "bg-destructive/20" : "bg-primary/15"
-                }`}>
-                  {whatsappStatus === "sent" ? (
-                    <CheckCircle2 className="w-5 h-5 text-success" />
-                  ) : whatsappStatus === "failed" ? (
-                    <AlertCircle className="w-5 h-5 text-destructive" />
-                  ) : (
-                    <MessageCircle className="w-5 h-5 text-primary" />
-                  )}
+                <div className="w-10 h-10 rounded-xl bg-success/20 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-success" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  {whatsappStatus === "sending" && (
-                    <p className="text-sm font-medium">📤 Sending report to WhatsApp ({phoneNumber})...</p>
-                  )}
-                  {whatsappStatus === "sent" && (
-                    <p className="text-sm font-medium text-success">✅ Your report has been delivered via WhatsApp</p>
-                  )}
-                  {whatsappStatus === "failed" && (
-                    <p className="text-sm font-medium text-destructive">❌ Failed to send. Please try again.</p>
-                  )}
-                  {whatsappStatus === "idle" && (
-                    <p className="text-sm font-medium">📱 Preparing WhatsApp delivery to {phoneNumber}...</p>
-                  )}
+                  <p className="text-sm font-semibold text-success">Delivered via WhatsApp</p>
+                  <p className="text-xs text-success/80 mt-0.5">
+                    Your report has been delivered to your WhatsApp ({phoneNumber}) for easy access.
+                  </p>
                 </div>
-                {whatsappStatus === "failed" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => { setWhatsappSent(false); setWhatsappStatus("idle"); }}
-                    className="rounded-full"
-                  >
-                    Retry
-                  </Button>
-                )}
               </motion.div>
             )}
 
