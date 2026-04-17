@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
 import { languages } from "@/lib/sampleData";
+import { useReportStore } from "@/store/reportStore";
 
 const LanguagePage = () => {
   const navigate = useNavigate();
@@ -128,9 +129,12 @@ const LanguagePage = () => {
               disabled={!selected}
               onClick={() => {
                 const chosen = languages.find((l) => l.name === selected);
-                sessionStorage.setItem("decodex-lang", selected);
-                sessionStorage.setItem("decodex-lang-code", chosen?.code || "en-US");
-                toast.success(`Language selected: ${chosen?.name || selected}`);
+                const name = selected === "auto" ? "English" : selected;
+                const code = chosen?.code || "en-US";
+                sessionStorage.setItem("decodex-lang", name);
+                sessionStorage.setItem("decodex-lang-code", code);
+                useReportStore.getState().setLanguage(name, code);
+                toast.success(`Language selected: ${name}`);
                 navigate("/input");
               }}
               className="w-full h-14 rounded-xl bg-gradient-primary hover:opacity-90 shadow-glow text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
