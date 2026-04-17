@@ -58,8 +58,8 @@ const ResultsPage = () => {
   const [readingSummary, setReadingSummary] = useState(false);
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
 
-  const lang = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang-code")) || "en-US";
-  const langName = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang")) || "English";
+  const lang = languageCode || "en-US";
+  const langName = language || "English";
   const speech = useSpeechRecognition({ lang, interimResults: true });
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -113,9 +113,22 @@ const ResultsPage = () => {
       setReadingSummary(false);
       return;
     }
-    const text = `Report summary. ${summaryBullets.join(". ")}.`;
+    const bullets = analysisResult?.summary || [];
+    const text = `Report summary. ${bullets.join(". ")}.`;
     const ok = speakText(text, () => setReadingSummary(false));
     if (ok) setReadingSummary(true);
+  };
+
+  const [readingFull, setReadingFull] = useState(false);
+  const handleReadFull = () => {
+    if (readingFull) {
+      window.speechSynthesis?.cancel();
+      setReadingFull(false);
+      return;
+    }
+    const text = analysisResult?.fullReportText || analysisResult?.aiExplanation || "";
+    const ok = speakText(text, () => setReadingFull(false));
+    if (ok) setReadingFull(true);
   };
 
   // Typing-effect for AI response
@@ -132,18 +145,32 @@ const ResultsPage = () => {
     }, 18);
   };
 
-  const submitAsk = () => {
+  const submitAsk = async () => {
     if (!askInput.trim()) return;
     const q = askInput.trim();
     setIsThinking(true);
     setAskResponse("");
     setTypedResponse("");
-    setTimeout(() => {
-      const resp = getMockAIResponse(q);
+    try {
+      const { data, error } = await supabase.functions.invoke("ask-doubt", {
+        body: {
+          question: q,
+          reportText,
+          summary: analysisResult?.summary,
+          language: langName,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      const resp = data?.answer || "Sorry, I couldn't get an answer.";
       setAskResponse(resp);
       setIsThinking(false);
       animateResponse(resp);
-    }, 600);
+    } catch (e: any) {
+      console.error("ask-doubt error", e);
+      setIsThinking(false);
+      toast.error(e?.message || "Could not get a response. Please try again.");
+    }
   };
 
   const handleAskMicToggle = () => {
