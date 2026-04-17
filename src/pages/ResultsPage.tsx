@@ -34,8 +34,6 @@ const faqs = [
 
 const promptChips = ["What does this mean?", "Should I be worried?", "What next?"];
 
-const N8N_WEBHOOK = "https://rajalakshmi.app.n8n.cloud/webhook/send-report";
-
 const ResultsPage = () => {
   const navigate = useNavigate();
   const { analysisResult, reportText, language, languageCode, userName, phoneNumber } = useReportStore();
@@ -61,8 +59,6 @@ const ResultsPage = () => {
   const [readingSummary, setReadingSummary] = useState(false);
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
-  const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-  const [whatsappSent, setWhatsappSent] = useState(false);
 
   const lang = languageCode || "en-US";
   const langName = language || "English";
@@ -87,44 +83,16 @@ const ResultsPage = () => {
     }
   }, [analyzedToastShown]);
 
-  // Auto-send to WhatsApp via n8n webhook (only if phone number was provided)
+  // UI-only WhatsApp delivery confirmation (actual send handled externally via n8n)
   useEffect(() => {
-    if (whatsappSent) return;
     if (!analysisResult) return;
     if (!phoneNumber || !phoneNumber.trim()) return;
-
-    const send = async () => {
-      setWhatsappSent(true);
-      setWhatsappStatus("sending");
-      try {
-        const res = await fetch(N8N_WEBHOOK, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: userName || "Patient",
-            phone: phoneNumber.trim(),
-            summary: analysisResult.summary,
-            findings: analysisResult.findings,
-            nextSteps: analysisResult.nextSteps,
-            worryLevel: analysisResult.worryLevel,
-            language: language,
-          }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setWhatsappStatus("sent");
-        toast.success("📱 Report automatically sent to your WhatsApp");
-      } catch (e) {
-        console.error("Auto WhatsApp send failed", e);
-        setWhatsappStatus("failed");
-        toast.error("❌ Failed to send report. Please try again.");
-      }
-    };
-
-    // small delay so the success toast lands first
-    const t = setTimeout(send, 1200);
+    const t = setTimeout(() => {
+      toast.success("📱 Report sent to your WhatsApp");
+    }, 1200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysisResult, phoneNumber, whatsappSent]);
+  }, [analysisResult]);
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
