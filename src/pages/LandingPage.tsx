@@ -1,15 +1,15 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowRight, Play, FileSearch, Brain, ShieldCheck, Globe, AlertTriangle,
-  MessageCircle, Sparkles, Heart, Activity,
+  ArrowRight, Sparkles, FileSearch, Brain, ShieldCheck, Globe, AlertTriangle,
+  MessageCircle, Heart, Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
 import { AnimatedDarkBackground } from "@/components/AnimatedDarkBackground";
-import { WatchDemoModal } from "@/components/WatchDemoModal";
+import { useReportStore } from "@/store/reportStore";
+import { sampleReport } from "@/lib/sampleData";
 
 const features = [
   { icon: FileSearch, title: "Smart Report Reading", desc: "Understands radiology, blood tests, MRIs, CT scans and more" },
@@ -30,7 +30,12 @@ const testimonials = [
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const [demoOpen, setDemoOpen] = useState(false);
+  const setReportText = useReportStore((s) => s.setReportText);
+
+  const handleTrySample = () => {
+    setReportText(sampleReport);
+    navigate("/language");
+  };
 
   return (
     <PageTransition>
@@ -92,7 +97,7 @@ const LandingPage = () => {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto"
+              className="text-lg md:text-xl text-white/85 max-w-2xl mx-auto leading-relaxed"
             >
               Stop Googling symptoms in panic. Decodex reads your radiology, blood test, and lab reports — then explains everything in plain, calm language.
             </motion.p>
@@ -100,32 +105,30 @@ const LandingPage = () => {
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-3 justify-center pt-4"
+              transition={{ delay: 0.35 }}
+              className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-6"
             >
               <Button
                 size="lg"
                 onClick={() => navigate("/auth")}
-                className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 h-14 px-8 text-base shadow-[0_0_30px_rgba(37,99,235,0.6)] border-0 group"
+                className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 h-14 px-10 text-base font-semibold shadow-[0_0_40px_rgba(6,182,212,0.6)] hover:shadow-[0_0_60px_rgba(6,182,212,0.8)] border-0 group transition-all"
               >
                 Decode My Report
                 <ArrowRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <Button
-                size="lg"
-                variant="ghost"
-                onClick={() => setDemoOpen(true)}
-                className="rounded-full h-14 px-8 text-base text-white hover:bg-white/10 border border-white/20 backdrop-blur-md"
+              <button
+                onClick={handleTrySample}
+                className="text-sm text-cyan-200/90 hover:text-cyan-100 underline-offset-4 hover:underline transition-colors px-4 py-2"
               >
-                <Play className="w-5 h-5 mr-1" /> Watch Demo
-              </Button>
+                ✨ Try with Sample Report
+              </button>
             </motion.div>
 
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="text-sm text-white/50"
+              transition={{ delay: 0.6 }}
+              className="text-sm text-white/60 pt-2"
             >
               Trusted by 10,000+ patients · No medical jargon · 100% private
             </motion.p>
@@ -244,7 +247,6 @@ const LandingPage = () => {
           </div>
         </footer>
 
-        <WatchDemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
       </div>
     </PageTransition>
   );
