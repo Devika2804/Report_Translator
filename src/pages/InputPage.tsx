@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+// Input component no longer needed (WhatsApp section removed)
 import { Textarea } from "@/components/ui/textarea";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
@@ -26,16 +26,15 @@ const tabs: { id: Tab; icon: any; label: string }[] = [
 
 const InputPage = () => {
   const navigate = useNavigate();
-  const { reportText: storedText, isSample, phoneNumber: storedPhone, userName: storedName, setUserContact } = useReportStore();
+  const { reportText: storedText, isSample } = useReportStore();
   const [tab, setTab] = useState<Tab>("paste");
-  const [text, setText] = useState(isSample ? storedText : "");
+  // Prefill: stored text if present, otherwise the sample so the demo is instant.
+  const [text, setText] = useState(storedText && storedText.trim() ? storedText : sampleReport);
   const [file, setFile] = useState<File | null>(null);
   const [voiceText, setVoiceText] = useState("");
   const [scanText, setScanText] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
-  const [phone, setPhone] = useState(storedPhone || "");
-  const [name, setName] = useState(storedName || "");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const lang = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang-code")) || "en-US";
@@ -169,7 +168,7 @@ const InputPage = () => {
                   {isSample && (
                     <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-light border border-primary/30">
                       <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-xs font-semibold text-primary">Sample report loaded</span>
+                      <span className="text-xs font-semibold text-primary">Sample report loaded — edit or analyze directly</span>
                     </div>
                   )}
                   <div className="relative group">
@@ -178,16 +177,11 @@ const InputPage = () => {
                     </div>
                     <Textarea
                       value={text}
-                      readOnly={isSample}
-                      onChange={(e) => !isSample && setText(e.target.value.slice(0, 5000))}
-                      placeholder="Example Report:&#10;Chest X-ray shows mild cardiomegaly and bilateral pleural effusion. Lung fields show mild haziness..."
-                      className={`min-h-[260px] rounded-2xl border-2 pl-12 pr-4 py-4 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-all resize-none text-base leading-relaxed bg-background/50 ${isSample ? "cursor-default opacity-95" : ""}`}
+                      onChange={(e) => setText(e.target.value.slice(0, 5000))}
+                      placeholder="Paste your medical report..."
+                      className="min-h-[260px] rounded-2xl border-2 pl-12 pr-4 py-4 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-all resize-none text-base leading-relaxed bg-background/50"
                     />
-                    <div className="flex items-center justify-between mt-3 px-1">
-                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-primary" />
-                        {isSample ? "Demo report — ready to analyze" : "Paste your medical report here."}
-                      </p>
+                    <div className="flex items-center justify-end mt-3 px-1">
                       <span className="text-xs text-muted-foreground tabular-nums">{text.length} / 5000</span>
                     </div>
                   </div>
@@ -361,38 +355,11 @@ const InputPage = () => {
             </AnimatePresence>
           </div>
 
-          {/* Optional contact for WhatsApp delivery */}
-          <div className="mt-6 bg-card rounded-2xl p-5 shadow-card-soft border border-border">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="font-semibold text-sm">📱 Auto-deliver report to WhatsApp</p>
-                <p className="text-xs text-muted-foreground">Optional — we'll send your simplified report after analysis.</p>
-              </div>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name (optional)"
-                className="rounded-xl"
-              />
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="WhatsApp number (e.g. +91 98765 43210)"
-                className="rounded-xl"
-              />
-            </div>
-          </div>
-
           {/* Analyze button */}
           <div className="mt-6">
             <Button
               disabled={!hasContent || analyzing}
-              onClick={() => {
-                setUserContact(name.trim(), phone.trim());
-                analyze();
-              }}
+              onClick={analyze}
               className="w-full h-14 rounded-xl bg-gradient-primary hover:opacity-90 shadow-glow text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none group"
             >
               {analyzing ? (
