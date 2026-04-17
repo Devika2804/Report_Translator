@@ -486,55 +486,23 @@ const ResultsPage = () => {
               </div>
             </motion.div>
 
-            {/* WhatsApp Auto-Delivery Status */}
+            {/* WhatsApp Delivery Confirmation (UI only — sending handled via n8n automation) */}
             {phoneNumber && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35 }}
-                className={`rounded-2xl p-4 border flex items-center gap-3 ${
-                  whatsappStatus === "sent"
-                    ? "bg-success-light border-success/30"
-                    : whatsappStatus === "failed"
-                    ? "bg-destructive/10 border-destructive/30"
-                    : "bg-primary-light border-primary/20"
-                }`}
+                className="rounded-2xl p-4 border bg-success-light border-success/30 flex items-center gap-3"
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  whatsappStatus === "sent" ? "bg-success/20" : whatsappStatus === "failed" ? "bg-destructive/20" : "bg-primary/15"
-                }`}>
-                  {whatsappStatus === "sent" ? (
-                    <CheckCircle2 className="w-5 h-5 text-success" />
-                  ) : whatsappStatus === "failed" ? (
-                    <AlertCircle className="w-5 h-5 text-destructive" />
-                  ) : (
-                    <MessageCircle className="w-5 h-5 text-primary" />
-                  )}
+                <div className="w-10 h-10 rounded-xl bg-success/20 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-success" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  {whatsappStatus === "sending" && (
-                    <p className="text-sm font-medium">📤 Sending report to WhatsApp ({phoneNumber})...</p>
-                  )}
-                  {whatsappStatus === "sent" && (
-                    <p className="text-sm font-medium text-success">✅ Your report has been delivered via WhatsApp</p>
-                  )}
-                  {whatsappStatus === "failed" && (
-                    <p className="text-sm font-medium text-destructive">❌ Failed to send. Please try again.</p>
-                  )}
-                  {whatsappStatus === "idle" && (
-                    <p className="text-sm font-medium">📱 Preparing WhatsApp delivery to {phoneNumber}...</p>
-                  )}
+                  <p className="text-sm font-semibold text-success">Delivered via WhatsApp</p>
+                  <p className="text-xs text-success/80 mt-0.5">
+                    Your report has been delivered to your WhatsApp ({phoneNumber}) for easy access.
+                  </p>
                 </div>
-                {whatsappStatus === "failed" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => { setWhatsappSent(false); setWhatsappStatus("idle"); }}
-                    className="rounded-full"
-                  >
-                    Retry
-                  </Button>
-                )}
               </motion.div>
             )}
 
