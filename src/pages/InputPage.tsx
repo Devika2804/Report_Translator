@@ -1,15 +1,17 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, Upload, Mic, Camera, Sparkles, Lock, ShieldCheck, ArrowRight,
-  CloudUpload, X, Scan, Loader2, Check
+  CloudUpload, X, Scan, Loader2, Check, Square, AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
 import { sampleReport } from "@/lib/sampleData";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 type Tab = "paste" | "upload" | "voice" | "scan";
 
@@ -25,23 +27,51 @@ const InputPage = () => {
   const [tab, setTab] = useState<Tab>("paste");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [recording, setRecording] = useState(false);
   const [voiceText, setVoiceText] = useState("");
   const [scanText, setScanText] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const hasContent = (tab === "paste" && text.trim()) || (tab === "upload" && file) || (tab === "voice" && voiceText.trim()) || (tab === "scan" && scanText.trim());
+  const lang = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang-code")) || "en-US";
+  const speech = useSpeechRecognition({ lang, interimResults: true });
+
+  // Sync live transcript into voice textarea while listening
+  useEffect(() => {
+    if (speech.transcript) setVoiceText(speech.transcript);
+  }, [speech.transcript]);
+
+  const hasContent =
+    (tab === "paste" && text.trim()) ||
+    (tab === "upload" && file) ||
+    (tab === "voice" && voiceText.trim()) ||
+    (tab === "scan" && scanText.trim());
 
   const steps = ["Reading report...", "Extracting findings...", "Simplifying language..."];
 
   const analyze = () => {
     setAnalyzing(true);
     setStep(0);
+    const finalText =
+      tab === "paste" ? text :
+      tab === "voice" ? voiceText :
+      tab === "scan" ? scanText :
+      file ? `[Uploaded file: ${file.name}]` : "";
+    sessionStorage.setItem("decodex-input", finalText);
     setTimeout(() => setStep(1), 600);
     setTimeout(() => setStep(2), 1200);
     setTimeout(() => navigate("/analyzing"), 1800);
+  };
+
+  const handleMicToggle = () => {
+    if (speech.isListening) {
+      speech.stop();
+    } else {
+      setVoiceText("");
+      speech.reset();
+      speech.start();
+      toast("Listening... speak now", { icon: "🎙️" });
+    }
   };
 
   return (
@@ -51,7 +81,17 @@ const InputPage = () => {
           <div className="container flex items-center justify-between h-16">
             <Logo />
             <div className="flex items-center gap-3">
-              <Button variant="outline" className="rounded-full" onClick={() => { setText(""); setFile(null); setVoiceText(""); setScanText(""); }}>
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={() => {
+                  setText("");
+                  setFile(null);
+                  setVoiceText("");
+                  setScanText("");
+                  speech.reset();
+                }}
+              >
                 New Report
               </Button>
               <div className="w-9 h-9 rounded-full bg-gradient-primary flex items-center justify-center text-white text-sm font-semibold">JD</div>
@@ -129,7 +169,22 @@ const InputPage = () => {
                         <span key={f} className="px-2.5 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">{f}</span>
                       ))}
                     </div>
-                    <input ref={fileRef} type="file" hidden accept=".pdf,.txt,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      hidden
+                      accept=".pdf,.txt,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        if (f.size > 10 * 1024 * 1024) {
+                          toast.error("File too large. Max 10MB.");
+                          return;
+                        }
+                        setFile(f);
+                        toast.success(`Uploaded: ${f.name}`);
+                      }}
+                    />
                   </div>
                   {file && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 flex items-center justify-between bg-primary-light rounded-xl p-3">
@@ -146,29 +201,37 @@ const InputPage = () => {
               )}
 
               {tab === "voice" && (
-                <motion.div key="voice" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-center py-6">
+                <motion.div key="voice" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-center py-2">
+                  {!speech.isSupported && (
+                    <div className="mb-4 mx-auto max-w-md flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <span>Voice input requires Chrome or Edge browser. Please type or paste instead.</span>
+                    </div>
+                  )}
+
                   <div className="relative inline-block">
-                    {!recording && <div className="absolute inset-0 pulse-ring" />}
+                    {speech.isListening && (
+                      <div className="absolute inset-0 listen-ring rounded-full" />
+                    )}
                     <button
-                      onClick={() => {
-                        if (recording) {
-                          setRecording(false);
-                          setVoiceText("Patient reports occasional chest tightness. Recent X-ray shows mild cardiomegaly. Doctor recommended follow-up in 2 weeks.");
-                        } else {
-                          setRecording(true);
-                        }
-                      }}
-                      className="relative w-24 h-24 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow hover:scale-105 transition-transform"
+                      onClick={handleMicToggle}
+                      disabled={!speech.isSupported}
+                      className={`relative w-24 h-24 rounded-full flex items-center justify-center shadow-glow hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed ${
+                        speech.isListening
+                          ? "bg-gradient-to-br from-red-500 to-rose-600"
+                          : "bg-gradient-primary"
+                      }`}
                     >
-                      {recording ? (
+                      {speech.isListening ? (
                         <div className="flex gap-1 items-end h-8">
-                          {[1, 2, 3, 4, 5].map((i) => (
-                            <motion.div
+                          {[0, 1, 2, 3, 4].map((i) => (
+                            <div
                               key={i}
-                              animate={{ height: [8, 28, 8] }}
-                              transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }}
                               className="w-1 bg-white rounded-full"
-                              style={{ height: 8 }}
+                              style={{
+                                height: "100%",
+                                animation: `wave-bar 0.7s ease-in-out ${i * 0.1}s infinite`,
+                              }}
                             />
                           ))}
                         </div>
@@ -177,12 +240,45 @@ const InputPage = () => {
                       )}
                     </button>
                   </div>
+
                   <p className="mt-6 font-medium">
-                    {recording ? "Recording... tap to stop" : voiceText ? "Recording captured" : "Tap to start recording"}
+                    {speech.isListening
+                      ? "Listening... speak now"
+                      : voiceText
+                      ? "Recording captured — edit if needed"
+                      : "Tap to speak"}
                   </p>
-                  {voiceText && (
-                    <Textarea value={voiceText} onChange={(e) => setVoiceText(e.target.value)} className="mt-4 min-h-[120px] rounded-xl text-left" />
+
+                  {speech.isListening && (
+                    <Button
+                      onClick={() => speech.stop()}
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 rounded-full"
+                    >
+                      <Square className="w-3 h-3 mr-1.5 fill-current" /> Tap to stop
+                    </Button>
                   )}
+
+                  {/* Live transcript / editable result */}
+                  {(voiceText || speech.isListening) && (
+                    <Textarea
+                      value={voiceText}
+                      onChange={(e) => setVoiceText(e.target.value)}
+                      placeholder="Your speech will appear here in real time..."
+                      className="mt-4 min-h-[120px] rounded-xl text-left"
+                    />
+                  )}
+
+                  {speech.error && (
+                    <p className="mt-3 text-sm text-destructive flex items-center justify-center gap-2">
+                      <AlertCircle className="w-4 h-4" /> {speech.error}
+                    </p>
+                  )}
+
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Speak clearly — your speech will be converted to text before analysis.
+                  </p>
                 </motion.div>
               )}
 
@@ -190,7 +286,6 @@ const InputPage = () => {
                 <motion.div key="scan" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <div className="relative h-[280px] rounded-2xl border-2 border-dashed border-primary/50 overflow-hidden bg-primary-light/30 flex items-center justify-center">
                     <div className="scan-line" />
-                    {/* corners */}
                     {[
                       "top-2 left-2 border-t-2 border-l-2",
                       "top-2 right-2 border-t-2 border-r-2",

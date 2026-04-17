@@ -1,4 +1,16 @@
-export const sampleReport = `Chest X-ray PA view: Mild cardiomegaly noted. Lung fields show mild haziness in bilateral lower zones, suggestive of early pulmonary congestion. No pneumothorax. Costophrenic angles are blunted bilaterally. Bony thorax is intact. Impression: Mild cardiomegaly with early signs of congestive cardiac failure.`;
+export const sampleReport = `CHEST X-RAY REPORT — PA VIEW
+Patient: Demo Patient | Date: January 15, 2025
+Referring Doctor: Dr. S. Kumar | Hospital: City Medical Center
+
+FINDINGS:
+The cardiac silhouette is mildly enlarged with a cardiothoracic ratio of approximately 0.55. Both lung fields show mild haziness in the bilateral lower zones suggestive of early pulmonary venous hypertension or early pulmonary edema. The pulmonary vascularity appears mildly prominent. Both costophrenic angles are blunted, suggesting minimal pleural effusion bilaterally. The trachea is central. The mediastinum is not widened. No pneumothorax is identified. The osseous structures are intact with no acute fracture or dislocation.
+
+IMPRESSION:
+1. Mild cardiomegaly (CTR ~0.55)
+2. Bilateral lower zone haziness — early pulmonary congestion
+3. Minimal bilateral pleural effusion
+4. No pneumothorax
+5. Osseous structures intact`;
 
 export const sampleExplanation = `Your chest X-ray shows that your heart is slightly larger than usual, and there are some early signs of fluid buildup in the lower parts of your lungs. This is something your doctor will want to monitor, but it is not an emergency. The bones in your chest look completely normal.`;
 
@@ -24,18 +36,29 @@ export const recentReports = [
 ];
 
 export const languages = [
-  { flag: "🇬🇧", name: "English", native: "English" },
-  { flag: "🇮🇳", name: "Hindi", native: "हिंदी" },
-  { flag: "🇮🇳", name: "Tamil", native: "தமிழ்" },
-  { flag: "🇮🇳", name: "Bengali", native: "বাংলা" },
-  { flag: "🇮🇳", name: "Telugu", native: "తెలుగు" },
-  { flag: "🇮🇳", name: "Kannada", native: "ಕನ್ನಡ" },
-  { flag: "🇮🇳", name: "Marathi", native: "मराठी" },
-  { flag: "🇪🇸", name: "Spanish", native: "Español" },
-  { flag: "🇫🇷", name: "French", native: "Français" },
-  { flag: "🇸🇦", name: "Arabic", native: "العربية" },
-  { flag: "🇨🇳", name: "Chinese", native: "中文" },
-  { flag: "🇩🇪", name: "German", native: "Deutsch" },
-  { flag: "🇵🇹", name: "Portuguese", native: "Português" },
-  { flag: "🇯🇵", name: "Japanese", native: "日本語" },
+  { flag: "🇬🇧", name: "English", native: "English", code: "en-US" },
+  { flag: "🇮🇳", name: "Hindi", native: "हिंदी", code: "hi-IN" },
+  { flag: "🇮🇳", name: "Tamil", native: "தமிழ்", code: "ta-IN" },
+  { flag: "🇮🇳", name: "Bengali", native: "বাংলা", code: "bn-IN" },
+  { flag: "🇮🇳", name: "Telugu", native: "తెలుగు", code: "te-IN" },
+  { flag: "🇮🇳", name: "Kannada", native: "ಕನ್ನಡ", code: "kn-IN" },
+  { flag: "🇮🇳", name: "Marathi", native: "मराठी", code: "mr-IN" },
+  { flag: "🇪🇸", name: "Spanish", native: "Español", code: "es-ES" },
+  { flag: "🇫🇷", name: "French", native: "Français", code: "fr-FR" },
+  { flag: "🇸🇦", name: "Arabic", native: "العربية", code: "ar-SA" },
+  { flag: "🇨🇳", name: "Chinese", native: "中文", code: "zh-CN" },
+  { flag: "🇩🇪", name: "German", native: "Deutsch", code: "de-DE" },
+  { flag: "🇵🇹", name: "Portuguese", native: "Português", code: "pt-PT" },
+  { flag: "🇯🇵", name: "Japanese", native: "日本語", code: "ja-JP" },
 ];
+
+export const getMockAIResponse = (question: string): string => {
+  const q = question.toLowerCase();
+  if (q.includes("serious") || q.includes("worry") || q.includes("scared"))
+    return "Based on your report, the findings are mild and not immediately serious. Your doctor will want to monitor this over the next few weeks, but there is no reason to panic. Regular check-ups and following your doctor's advice will be key.";
+  if (q.includes("mean") || q.includes("what does") || q.includes("explain"))
+    return "The findings in your report suggest some mild changes that are common and manageable. Think of it as your body sending an early signal — which is actually a good thing, because early detection means easier treatment.";
+  if (q.includes("next") || q.includes("do") || q.includes("step"))
+    return "The most important next step is to share this simplified report with your doctor. Based on the findings, a follow-up appointment within 2-4 weeks is recommended. In the meantime, avoid strenuous activity and maintain a healthy diet.";
+  return "That's a great question. Based on your report findings, I recommend discussing this specific concern with your doctor, who can provide personalized guidance. The AI analysis shows mild findings that are worth monitoring but not an emergency.";
+};
