@@ -247,7 +247,6 @@ const LandingPage = () => {
           </div>
         </footer>
 
-        <WatchDemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
       </div>
     </PageTransition>
   );
