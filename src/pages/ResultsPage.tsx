@@ -58,7 +58,7 @@ const ResultsPage = () => {
   const [pulseFab, setPulseFab] = useState(true);
   const [readingSummary, setReadingSummary] = useState(false);
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
-  const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [showDeliveryPopup, setShowDeliveryPopup] = useState(false);
 
   const lang = languageCode || "en-US";
   const langName = language || "English";
@@ -83,13 +83,10 @@ const ResultsPage = () => {
     }
   }, [analyzedToastShown]);
 
-  // UI-only WhatsApp delivery confirmation (actual send handled externally via n8n)
+  // UI-only WhatsApp delivery confirmation popup (actual send handled externally via n8n)
   useEffect(() => {
     if (!analysisResult) return;
-    if (!phoneNumber || !phoneNumber.trim()) return;
-    const t = setTimeout(() => {
-      toast.success("📱 Report sent to your WhatsApp");
-    }, 1200);
+    const t = setTimeout(() => setShowDeliveryPopup(true), 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisResult]);
@@ -127,12 +124,12 @@ const ResultsPage = () => {
     if (matched) {
       utt.voice = matched;
       utt.lang = matched.lang;
-    } else if (langPrefix !== "en") {
-      // No voice for selected language → fall back to English with a notice
-      toast(`Voice not supported in ${langName}, using English.`, { icon: "🔊" });
-      utt.lang = "en-US";
     } else {
+      // No exact voice — still speak in the selected language code (do NOT fall back to English content).
       utt.lang = lang;
+      if (langPrefix !== "en") {
+        toast(`No native ${langName} voice installed — using closest available.`, { icon: "🔊" });
+      }
     }
 
     utt.rate = 0.95;
@@ -487,24 +484,22 @@ const ResultsPage = () => {
             </motion.div>
 
             {/* WhatsApp Delivery Confirmation (UI only — sending handled via n8n automation) */}
-            {phoneNumber && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="rounded-2xl p-4 border bg-success-light border-success/30 flex items-center gap-3"
-              >
-                <div className="w-10 h-10 rounded-xl bg-success/20 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-success" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-success">Delivered via WhatsApp</p>
-                  <p className="text-xs text-success/80 mt-0.5">
-                    Your report has been delivered to your WhatsApp ({phoneNumber}) for easy access.
-                  </p>
-                </div>
-              </motion.div>
-            )}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="rounded-2xl p-4 border bg-success-light border-success/30 flex items-center gap-3"
+            >
+              <div className="w-10 h-10 rounded-xl bg-success/20 flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-success" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-success">Delivered via WhatsApp</p>
+                <p className="text-xs text-success/80 mt-0.5">
+                  Your report has been automatically delivered to your WhatsApp{phoneNumber ? ` (${phoneNumber})` : ""}.
+                </p>
+              </div>
+            </motion.div>
 
             {/* Download Action — bottom of main content */}
             <motion.div
@@ -526,15 +521,6 @@ const ResultsPage = () => {
                   >
                     <Download className="w-4 h-4 mr-2" /> Download PDF
                   </Button>
-                  {!phoneNumber && (
-                    <Button
-                      onClick={() => setShowWhatsApp(true)}
-                      size="lg"
-                      className="bg-success hover:bg-success/90 text-white rounded-full font-semibold shadow-md"
-                    >
-                      <MessageCircle className="w-4 h-4 mr-2" /> Send to WhatsApp
-                    </Button>
-                  )}
                 </div>
               </div>
             </motion.div>
