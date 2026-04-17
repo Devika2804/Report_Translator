@@ -25,13 +25,16 @@ const tabs: { id: Tab; icon: any; label: string }[] = [
 
 const InputPage = () => {
   const navigate = useNavigate();
+  const { reportText: storedText, isSample, phoneNumber: storedPhone, userName: storedName, setUserContact } = useReportStore();
   const [tab, setTab] = useState<Tab>("paste");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(isSample ? storedText : "");
   const [file, setFile] = useState<File | null>(null);
   const [voiceText, setVoiceText] = useState("");
   const [scanText, setScanText] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
+  const [phone, setPhone] = useState(storedPhone || "");
+  const [name, setName] = useState(storedName || "");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const lang = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang-code")) || "en-US";
