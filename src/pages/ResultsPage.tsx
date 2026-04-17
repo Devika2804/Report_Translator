@@ -85,6 +85,11 @@ const ResultsPage = () => {
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
+    // Force voices to load (Chrome populates async)
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
     return () => {
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
