@@ -232,6 +232,7 @@ const ResultsPage = () => {
         nextSteps: analysisResult.nextSteps,
       });
       toast.success("Report downloaded successfully!");
+      setShowDeliveryPopup(true);
     } catch (e) {
       console.error(e);
       toast.error("Could not generate PDF. Please try again.");
