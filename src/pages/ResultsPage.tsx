@@ -813,13 +813,46 @@ const ResultsPage = () => {
           )}
         </AnimatePresence>
 
-        {/* WhatsApp Share Modal */}
-        <WhatsAppShareModal
-          open={showWhatsApp}
-          onClose={() => setShowWhatsApp(false)}
-          analysis={analysisResult}
-          language={langName}
-        />
+        {/* WhatsApp Delivery Popup (auto-shown on load) */}
+        <AnimatePresence>
+          {showDeliveryPopup && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+              onClick={() => setShowDeliveryPopup(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                className="glass bg-card/95 rounded-3xl p-8 max-w-sm w-full shadow-glow text-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.15, type: "spring", stiffness: 260, damping: 18 }}
+                  className="w-20 h-20 mx-auto mb-4 rounded-full bg-success/15 flex items-center justify-center"
+                >
+                  <CheckCircle2 className="w-12 h-12 text-success" strokeWidth={2.5} />
+                </motion.div>
+                <h2 className="text-xl font-bold mb-2">Report Sent Successfully</h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  📱 Your report has been sent to your WhatsApp.
+                </p>
+                <Button
+                  onClick={() => setShowDeliveryPopup(false)}
+                  className="w-full h-11 rounded-xl bg-gradient-primary hover:opacity-90 font-semibold"
+                >
+                  OK
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </PageTransition>
   );
