@@ -165,12 +165,6 @@ const InputPage = () => {
             <AnimatePresence mode="wait">
               {tab === "paste" && (
                 <motion.div key="paste" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  {isSample && (
-                    <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-light border border-primary/30">
-                      <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-xs font-semibold text-primary">Sample report loaded — edit or analyze directly</span>
-                    </div>
-                  )}
                   <div className="relative group">
                     <div className="absolute top-4 left-4 z-10 pointer-events-none text-primary/60 group-focus-within:text-primary transition-colors">
                       <FileText className="w-5 h-5" />
@@ -178,10 +172,17 @@ const InputPage = () => {
                     <Textarea
                       value={text}
                       onChange={(e) => setText(e.target.value.slice(0, 5000))}
-                      placeholder="Paste your medical report..."
+                      placeholder="Paste your medical report here..."
                       className="min-h-[260px] rounded-2xl border-2 pl-12 pr-4 py-4 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-all resize-none text-base leading-relaxed bg-background/50"
                     />
-                    <div className="flex items-center justify-end mt-3 px-1">
+                    <div className="flex items-center justify-between mt-3 px-1">
+                      <button
+                        type="button"
+                        onClick={() => setText(sampleReport)}
+                        className="text-sm font-medium text-primary hover:text-primary/80 hover:underline inline-flex items-center gap-1.5 transition-colors"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> Try Sample Report
+                      </button>
                       <span className="text-xs text-muted-foreground tabular-nums">{text.length} / 5000</span>
                     </div>
                   </div>
