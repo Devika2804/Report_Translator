@@ -185,20 +185,23 @@ const ResultsPage = () => {
   };
 
   const handleDownload = () => {
+    if (!analysisResult) return;
     try {
-      const fullReport = `${sampleExplanation}\n\nThis report covers a chest X-ray PA view performed on ${new Date().toLocaleDateString()}. The findings include mild cardiomegaly with a cardiothoracic ratio of approximately 0.55, mild bilateral lower-zone haziness suggestive of early pulmonary congestion, and minimal bilateral pleural effusion. The osseous structures are intact and there is no pneumothorax.\n\nIn plain language: your heart appears slightly larger than typical, and there are early signs of fluid in the lower portions of both lungs. None of these findings indicate an emergency, but they do warrant follow-up with your physician for monitoring and possible lifestyle adjustments.`;
       generateReportPDF({
         language: langName,
-        summaryBullets,
-        explanation: sampleExplanation,
-        findings: sampleFindings,
-        worryLevel: "Mild",
-        agePercent: 65,
-        envPercent: 35,
-        ageBullets,
-        envBullets,
-        fullReport,
-        nextSteps: nextStepsList,
+        summaryBullets: analysisResult.summary,
+        explanation: analysisResult.aiExplanation,
+        findings: analysisResult.findings.map((f) => ({
+          term: f.medicalTerm,
+          plain: f.plainExplanation,
+        })),
+        worryLevel: analysisResult.worryLevel,
+        agePercent: analysisResult.ageRelatedPercent,
+        envPercent: analysisResult.environmentalPercent,
+        ageBullets: analysisResult.ageRelatedFactors,
+        envBullets: analysisResult.environmentalFactors,
+        fullReport: analysisResult.fullReportText,
+        nextSteps: analysisResult.nextSteps,
       });
       toast.success("Report downloaded successfully!");
     } catch (e) {
@@ -223,10 +226,11 @@ const ResultsPage = () => {
                 size="icon"
                 className="rounded-full"
                 onClick={() => {
+                  const text = analysisResult?.aiExplanation || "";
                   if (navigator.share) {
-                    navigator.share({ title: "Decodex Report", text: sampleExplanation }).catch(() => {});
+                    navigator.share({ title: "Decodex Report", text }).catch(() => {});
                   } else {
-                    navigator.clipboard?.writeText(sampleExplanation);
+                    navigator.clipboard?.writeText(text);
                     toast.success("Report summary copied to clipboard");
                   }
                 }}
