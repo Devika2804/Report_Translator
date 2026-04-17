@@ -119,6 +119,7 @@ const InputPage = () => {
                   setVoiceText("");
                   setScanText("");
                   speech.reset();
+                  useReportStore.getState().setReportText("", false);
                 }}
               >
                 New Report
