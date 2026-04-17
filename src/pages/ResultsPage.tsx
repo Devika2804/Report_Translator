@@ -518,6 +518,8 @@ const ResultsPage = () => {
 
             {/* Download Action — bottom of main content */}
             <motion.div
+              id="download-section"
+              ref={downloadSectionRef}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
