@@ -793,6 +793,14 @@ const ResultsPage = () => {
             </>
           )}
         </AnimatePresence>
+
+        {/* WhatsApp Share Modal */}
+        <WhatsAppShareModal
+          open={showWhatsApp}
+          onClose={() => setShowWhatsApp(false)}
+          analysis={analysisResult}
+          language={langName}
+        />
       </div>
     </PageTransition>
   );
