@@ -100,7 +100,25 @@ const ResultsPage = () => {
     }
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = lang;
+
+    // Try to find a voice that matches the selected language
+    const voices = window.speechSynthesis.getVoices();
+    const langPrefix = lang.split("-")[0].toLowerCase();
+    const exact = voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase());
+    const partial = voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix));
+    const matched = exact || partial;
+
+    if (matched) {
+      utt.voice = matched;
+      utt.lang = matched.lang;
+    } else if (langPrefix !== "en") {
+      // No voice for selected language → fall back to English with a notice
+      toast(`Voice not supported in ${langName}, using English.`, { icon: "🔊" });
+      utt.lang = "en-US";
+    } else {
+      utt.lang = lang;
+    }
+
     utt.rate = 0.95;
     utt.pitch = 1;
     utt.onend = () => onEnd?.();
