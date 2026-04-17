@@ -58,6 +58,7 @@ const ResultsPage = () => {
   const [pulseFab, setPulseFab] = useState(true);
   const [readingSummary, setReadingSummary] = useState(false);
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
 
   const lang = languageCode || "en-US";
   const langName = language || "English";
