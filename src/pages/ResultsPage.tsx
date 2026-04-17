@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
+import { WhatsAppShareModal } from "@/components/WhatsAppShareModal";
 import { recentReports } from "@/lib/sampleData";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { generateReportPDF } from "@/lib/generatePDF";
@@ -57,6 +58,7 @@ const ResultsPage = () => {
   const [pulseFab, setPulseFab] = useState(true);
   const [readingSummary, setReadingSummary] = useState(false);
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
 
   const lang = languageCode || "en-US";
   const langName = language || "English";
@@ -83,6 +85,11 @@ const ResultsPage = () => {
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
+    // Force voices to load (Chrome populates async)
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
     return () => {
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
@@ -98,7 +105,25 @@ const ResultsPage = () => {
     }
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = lang;
+
+    // Try to find a voice that matches the selected language
+    const voices = window.speechSynthesis.getVoices();
+    const langPrefix = lang.split("-")[0].toLowerCase();
+    const exact = voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase());
+    const partial = voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix));
+    const matched = exact || partial;
+
+    if (matched) {
+      utt.voice = matched;
+      utt.lang = matched.lang;
+    } else if (langPrefix !== "en") {
+      // No voice for selected language → fall back to English with a notice
+      toast(`Voice not supported in ${langName}, using English.`, { icon: "🔊" });
+      utt.lang = "en-US";
+    } else {
+      utt.lang = lang;
+    }
+
     utt.rate = 0.95;
     utt.pitch = 1;
     utt.onend = () => onEnd?.();
@@ -450,7 +475,7 @@ const ResultsPage = () => {
               </div>
             </motion.div>
 
-            {/* Download Full Report — bottom of main content */}
+            {/* Download + Share Actions — bottom of main content */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -459,16 +484,25 @@ const ResultsPage = () => {
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-bold mb-1">Download Full Report</h3>
-                  <p className="text-sm text-white/80">Get a beautifully formatted PDF with all findings, insights, and next steps.</p>
+                  <h3 className="text-lg font-bold mb-1">Take your report with you</h3>
+                  <p className="text-sm text-white/80">Download a polished PDF or send it instantly to WhatsApp.</p>
                 </div>
-                <Button
-                  onClick={handleDownload}
-                  size="lg"
-                  className="bg-white text-primary hover:bg-white/90 rounded-full font-semibold shadow-md flex-shrink-0"
-                >
-                  <Download className="w-4 h-4 mr-2" /> Download PDF
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                  <Button
+                    onClick={handleDownload}
+                    size="lg"
+                    className="bg-white text-primary hover:bg-white/90 rounded-full font-semibold shadow-md"
+                  >
+                    <Download className="w-4 h-4 mr-2" /> Download PDF
+                  </Button>
+                  <Button
+                    onClick={() => setShowWhatsApp(true)}
+                    size="lg"
+                    className="bg-success hover:bg-success/90 text-white rounded-full font-semibold shadow-md"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" /> Send to WhatsApp
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -759,6 +793,14 @@ const ResultsPage = () => {
             </>
           )}
         </AnimatePresence>
+
+        {/* WhatsApp Share Modal */}
+        <WhatsAppShareModal
+          open={showWhatsApp}
+          onClose={() => setShowWhatsApp(false)}
+          analysis={analysisResult}
+          language={langName}
+        />
       </div>
     </PageTransition>
   );
