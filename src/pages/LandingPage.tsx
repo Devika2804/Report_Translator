@@ -119,18 +119,12 @@ const LandingPage = () => {
             >
               <Button
                 size="lg"
-                onClick={() => navigate("/auth")}
-                className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 h-14 px-10 text-base font-semibold shadow-[0_0_40px_rgba(6,182,212,0.6)] hover:shadow-[0_0_60px_rgba(6,182,212,0.8)] border-0 group transition-all"
+                onClick={() => setShowOptions(true)}
+                className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 h-14 px-12 text-base font-semibold shadow-[0_0_40px_rgba(6,182,212,0.6)] hover:shadow-[0_0_60px_rgba(6,182,212,0.8)] border-0 group transition-all"
               >
                 Decode My Report
                 <ArrowRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <button
-                onClick={handleTrySample}
-                className="text-sm text-cyan-200/90 hover:text-cyan-100 underline-offset-4 hover:underline transition-colors px-4 py-2"
-              >
-                ✨ Try with Sample Report
-              </button>
             </motion.div>
 
             <motion.p
