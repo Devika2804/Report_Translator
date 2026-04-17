@@ -34,9 +34,11 @@ const faqs = [
 
 const promptChips = ["What does this mean?", "Should I be worried?", "What next?"];
 
+const N8N_WEBHOOK = "https://rajalakshmi.app.n8n.cloud/webhook/send-report";
+
 const ResultsPage = () => {
   const navigate = useNavigate();
-  const { analysisResult, reportText, language, languageCode } = useReportStore();
+  const { analysisResult, reportText, language, languageCode, userName, phoneNumber } = useReportStore();
 
   // If user landed here without analysis, send them back to input
   useEffect(() => {
@@ -59,6 +61,8 @@ const ResultsPage = () => {
   const [readingSummary, setReadingSummary] = useState(false);
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [whatsappStatus, setWhatsappStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const [whatsappSent, setWhatsappSent] = useState(false);
 
   const lang = languageCode || "en-US";
   const langName = language || "English";
