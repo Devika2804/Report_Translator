@@ -26,10 +26,10 @@ const tabs: { id: Tab; icon: any; label: string }[] = [
 
 const InputPage = () => {
   const navigate = useNavigate();
-  const { reportText: storedText, isSample } = useReportStore();
+  const { reportText: storedText } = useReportStore();
   const [tab, setTab] = useState<Tab>("paste");
-  // Prefill: stored text if present, otherwise the sample so the demo is instant.
-  const [text, setText] = useState(storedText && storedText.trim() ? storedText : sampleReport);
+  // Start empty — user can click "Try Sample Report" below textarea.
+  const [text, setText] = useState(storedText || "");
   const [file, setFile] = useState<File | null>(null);
   const [voiceText, setVoiceText] = useState("");
   const [scanText, setScanText] = useState("");
