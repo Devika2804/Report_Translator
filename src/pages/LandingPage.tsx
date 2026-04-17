@@ -37,7 +37,7 @@ const LandingPage = () => {
   const useSample = () => {
     setReportText(sampleReport, true);
     setShowOptions(false);
-    navigate("/language");
+    navigate("/input");
   };
 
   const uploadOwn = () => {
