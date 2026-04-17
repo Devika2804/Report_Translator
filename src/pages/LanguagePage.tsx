@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Check, Globe2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/Logo";
@@ -125,7 +126,13 @@ const LanguagePage = () => {
           <div className="container max-w-5xl">
             <Button
               disabled={!selected}
-              onClick={() => navigate("/input")}
+              onClick={() => {
+                const chosen = languages.find((l) => l.name === selected);
+                sessionStorage.setItem("decodex-lang", selected);
+                sessionStorage.setItem("decodex-lang-code", chosen?.code || "en-US");
+                toast.success(`Language selected: ${chosen?.name || selected}`);
+                navigate("/input");
+              }}
               className="w-full h-14 rounded-xl bg-gradient-primary hover:opacity-90 shadow-glow text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             >
               Continue
