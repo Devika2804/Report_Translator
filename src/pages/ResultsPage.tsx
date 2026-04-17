@@ -83,28 +83,8 @@ const ResultsPage = () => {
     }
   }, [analyzedToastShown]);
 
-  // UI-only WhatsApp delivery confirmation popup — triggers when user scrolls to download section
+  // UI-only WhatsApp delivery confirmation popup — triggers after user downloads PDF
   const downloadSectionRef = useRef<HTMLDivElement | null>(null);
-  const popupShownRef = useRef(false);
-  useEffect(() => {
-    if (!analysisResult) return;
-    const el = downloadSectionRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !popupShownRef.current) {
-            popupShownRef.current = true;
-            setShowDeliveryPopup(true);
-            observer.disconnect();
-          }
-        });
-      },
-      { threshold: 0.3 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [analysisResult]);
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
