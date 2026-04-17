@@ -210,6 +210,28 @@ const ResultsPage = () => {
     }
   };
 
+  // Render guard while redirecting
+  if (!analysisResult) {
+    return (
+      <PageTransition>
+        <div className="min-h-screen flex items-center justify-center bg-surface">
+          <p className="text-muted-foreground">Loading…</p>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  const worryStyle: Record<string, { bg: string; text: string; emoji: string; border: string; dot: string }> = {
+    Low:      { bg: "bg-success-light",     text: "text-success",     emoji: "🟢", border: "border-success/30",     dot: "bg-success" },
+    Mild:     { bg: "bg-warning-light",     text: "text-warning",     emoji: "🟡", border: "border-warning/30",     dot: "bg-warning" },
+    Moderate: { bg: "bg-orange-100",        text: "text-orange-700",  emoji: "🟠", border: "border-orange-300",     dot: "bg-orange-500" },
+    High:     { bg: "bg-destructive/10",    text: "text-destructive", emoji: "🔴", border: "border-destructive/30", dot: "bg-destructive" },
+  };
+  const wl = worryStyle[analysisResult.worryLevel] || worryStyle.Mild;
+  const agePct = Math.max(0, Math.min(100, analysisResult.ageRelatedPercent || 0));
+  const envPct = Math.max(0, Math.min(100, analysisResult.environmentalPercent || 0));
+  const dominantCause = agePct >= envPct ? "Age-Related" : "Environmental";
+
   return (
     <PageTransition>
       <div className="min-h-screen bg-surface">
@@ -298,7 +320,7 @@ const ResultsPage = () => {
                 <h2 className="text-lg font-bold">Report Summary</h2>
               </div>
               <ul className="space-y-2">
-                {summaryBullets.map((b, i) => (
+                {analysisResult.summary.map((b, i) => (
                   <motion.li
                     key={i}
                     initial={{ opacity: 0, x: -10 }}
@@ -337,29 +359,27 @@ const ResultsPage = () => {
 
               <AnimatePresence mode="wait">
                 <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="min-h-[180px]">
-                  {tab === "explain" && <p className="text-base leading-relaxed">{sampleExplanation}</p>}
+                  {tab === "explain" && <p className="text-base leading-relaxed">{analysisResult.aiExplanation}</p>}
 
                   {tab === "findings" && (
                     <div className="space-y-3">
-                      {sampleFindings.map((f, i) => (
+                      {analysisResult.findings.map((f, i) => (
                         <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl bg-muted/40">
-                          <span className="px-3 py-1 rounded-lg bg-card text-sm font-mono text-muted-foreground border border-border w-fit">{f.term}</span>
+                          <span className="px-3 py-1 rounded-lg bg-card text-sm font-mono text-muted-foreground border border-border w-fit">{f.medicalTerm}</span>
                           <span className="text-muted-foreground hidden sm:inline">→</span>
-                          <span className="text-sm flex-1">{f.plain}</span>
+                          <span className="text-sm flex-1">{f.plainExplanation}</span>
                         </motion.div>
                       ))}
                     </div>
                   )}
 
                   {tab === "means" && (
-                    <p className="text-base leading-relaxed">
-                      Overall, your report shows mild changes that are common and manageable. None of the findings are emergencies. Your doctor will likely want to monitor your heart and lung health over time and may suggest small lifestyle adjustments.
-                    </p>
+                    <p className="text-base leading-relaxed">{analysisResult.whatThisMeans}</p>
                   )}
 
                   {tab === "next" && (
                     <ol className="space-y-3">
-                      {nextStepsList.map((s, i) => (
+                      {analysisResult.nextSteps.map((s, i) => (
                         <li key={i} className="flex gap-3 items-start">
                           <span className="w-7 h-7 rounded-full bg-gradient-primary text-white text-sm font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                           <span className="text-sm pt-1">{s}</span>
