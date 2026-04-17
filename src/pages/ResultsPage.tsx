@@ -10,11 +10,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
-import {
-  sampleExplanation, sampleFindings, summaryBullets, recentReports, getMockAIResponse,
-} from "@/lib/sampleData";
+import { recentReports } from "@/lib/sampleData";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { generateReportPDF } from "@/lib/generatePDF";
+import { useReportStore } from "@/store/reportStore";
+import { supabase } from "@/integrations/supabase/client";
 
 type ResultTab = "explain" | "findings" | "means" | "next";
 const resultTabs: { id: ResultTab; label: string }[] = [
@@ -33,25 +33,19 @@ const faqs = [
 
 const promptChips = ["What does this mean?", "Should I be worried?", "What next?"];
 
-const ageBullets = [
-  "Natural changes in heart muscle elasticity",
-  "Gradual cardiovascular wear over time",
-  "Common in adults 50+",
-];
-const envBullets = [
-  "Diet and sodium intake",
-  "Physical activity levels",
-  "Air quality and smoking exposure",
-];
-const nextStepsList = [
-  "Schedule a follow-up with your doctor within 1–2 weeks",
-  "Bring this report and any prior tests to the visit",
-  "Track any symptoms like shortness of breath or swelling",
-  "Stay hydrated and follow any prescribed medications",
-];
-
 const ResultsPage = () => {
   const navigate = useNavigate();
+  const { analysisResult, reportText, language, languageCode } = useReportStore();
+
+  // If user landed here without analysis, send them back to input
+  useEffect(() => {
+    if (!analysisResult) {
+      toast.error("No analysis found. Please submit a report first.");
+      navigate("/input");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [tab, setTab] = useState<ResultTab>("explain");
   const [showAsk, setShowAsk] = useState(false);
   const [askTab, setAskTab] = useState<"voice" | "type">("voice");
@@ -64,8 +58,8 @@ const ResultsPage = () => {
   const [readingSummary, setReadingSummary] = useState(false);
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
 
-  const lang = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang-code")) || "en-US";
-  const langName = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang")) || "English";
+  const lang = languageCode || "en-US";
+  const langName = language || "English";
   const speech = useSpeechRecognition({ lang, interimResults: true });
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -119,9 +113,22 @@ const ResultsPage = () => {
       setReadingSummary(false);
       return;
     }
-    const text = `Report summary. ${summaryBullets.join(". ")}.`;
+    const bullets = analysisResult?.summary || [];
+    const text = `Report summary. ${bullets.join(". ")}.`;
     const ok = speakText(text, () => setReadingSummary(false));
     if (ok) setReadingSummary(true);
+  };
+
+  const [readingFull, setReadingFull] = useState(false);
+  const handleReadFull = () => {
+    if (readingFull) {
+      window.speechSynthesis?.cancel();
+      setReadingFull(false);
+      return;
+    }
+    const text = analysisResult?.fullReportText || analysisResult?.aiExplanation || "";
+    const ok = speakText(text, () => setReadingFull(false));
+    if (ok) setReadingFull(true);
   };
 
   // Typing-effect for AI response
@@ -138,18 +145,32 @@ const ResultsPage = () => {
     }, 18);
   };
 
-  const submitAsk = () => {
+  const submitAsk = async () => {
     if (!askInput.trim()) return;
     const q = askInput.trim();
     setIsThinking(true);
     setAskResponse("");
     setTypedResponse("");
-    setTimeout(() => {
-      const resp = getMockAIResponse(q);
+    try {
+      const { data, error } = await supabase.functions.invoke("ask-doubt", {
+        body: {
+          question: q,
+          reportText,
+          summary: analysisResult?.summary,
+          language: langName,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      const resp = data?.answer || "Sorry, I couldn't get an answer.";
       setAskResponse(resp);
       setIsThinking(false);
       animateResponse(resp);
-    }, 600);
+    } catch (e: any) {
+      console.error("ask-doubt error", e);
+      setIsThinking(false);
+      toast.error(e?.message || "Could not get a response. Please try again.");
+    }
   };
 
   const handleAskMicToggle = () => {
@@ -164,20 +185,23 @@ const ResultsPage = () => {
   };
 
   const handleDownload = () => {
+    if (!analysisResult) return;
     try {
-      const fullReport = `${sampleExplanation}\n\nThis report covers a chest X-ray PA view performed on ${new Date().toLocaleDateString()}. The findings include mild cardiomegaly with a cardiothoracic ratio of approximately 0.55, mild bilateral lower-zone haziness suggestive of early pulmonary congestion, and minimal bilateral pleural effusion. The osseous structures are intact and there is no pneumothorax.\n\nIn plain language: your heart appears slightly larger than typical, and there are early signs of fluid in the lower portions of both lungs. None of these findings indicate an emergency, but they do warrant follow-up with your physician for monitoring and possible lifestyle adjustments.`;
       generateReportPDF({
         language: langName,
-        summaryBullets,
-        explanation: sampleExplanation,
-        findings: sampleFindings,
-        worryLevel: "Mild",
-        agePercent: 65,
-        envPercent: 35,
-        ageBullets,
-        envBullets,
-        fullReport,
-        nextSteps: nextStepsList,
+        summaryBullets: analysisResult.summary,
+        explanation: analysisResult.aiExplanation,
+        findings: analysisResult.findings.map((f) => ({
+          term: f.medicalTerm,
+          plain: f.plainExplanation,
+        })),
+        worryLevel: analysisResult.worryLevel,
+        agePercent: analysisResult.ageRelatedPercent,
+        envPercent: analysisResult.environmentalPercent,
+        ageBullets: analysisResult.ageRelatedFactors,
+        envBullets: analysisResult.environmentalFactors,
+        fullReport: analysisResult.fullReportText,
+        nextSteps: analysisResult.nextSteps,
       });
       toast.success("Report downloaded successfully!");
     } catch (e) {
@@ -185,6 +209,28 @@ const ResultsPage = () => {
       toast.error("Could not generate PDF. Please try again.");
     }
   };
+
+  // Render guard while redirecting
+  if (!analysisResult) {
+    return (
+      <PageTransition>
+        <div className="min-h-screen flex items-center justify-center bg-surface">
+          <p className="text-muted-foreground">Loading…</p>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  const worryStyle: Record<string, { bg: string; text: string; emoji: string; border: string; dot: string }> = {
+    Low:      { bg: "bg-success-light",     text: "text-success",     emoji: "🟢", border: "border-success/30",     dot: "bg-success" },
+    Mild:     { bg: "bg-warning-light",     text: "text-warning",     emoji: "🟡", border: "border-warning/30",     dot: "bg-warning" },
+    Moderate: { bg: "bg-orange-100",        text: "text-orange-700",  emoji: "🟠", border: "border-orange-300",     dot: "bg-orange-500" },
+    High:     { bg: "bg-destructive/10",    text: "text-destructive", emoji: "🔴", border: "border-destructive/30", dot: "bg-destructive" },
+  };
+  const wl = worryStyle[analysisResult.worryLevel] || worryStyle.Mild;
+  const agePct = Math.max(0, Math.min(100, analysisResult.ageRelatedPercent || 0));
+  const envPct = Math.max(0, Math.min(100, analysisResult.environmentalPercent || 0));
+  const dominantCause = agePct >= envPct ? "Age-Related" : "Environmental";
 
   return (
     <PageTransition>
@@ -202,10 +248,11 @@ const ResultsPage = () => {
                 size="icon"
                 className="rounded-full"
                 onClick={() => {
+                  const text = analysisResult?.aiExplanation || "";
                   if (navigator.share) {
-                    navigator.share({ title: "Decodex Report", text: sampleExplanation }).catch(() => {});
+                    navigator.share({ title: "Decodex Report", text }).catch(() => {});
                   } else {
-                    navigator.clipboard?.writeText(sampleExplanation);
+                    navigator.clipboard?.writeText(text);
                     toast.success("Report summary copied to clipboard");
                   }
                 }}
@@ -273,7 +320,7 @@ const ResultsPage = () => {
                 <h2 className="text-lg font-bold">Report Summary</h2>
               </div>
               <ul className="space-y-2">
-                {summaryBullets.map((b, i) => (
+                {analysisResult.summary.map((b, i) => (
                   <motion.li
                     key={i}
                     initial={{ opacity: 0, x: -10 }}
@@ -312,29 +359,27 @@ const ResultsPage = () => {
 
               <AnimatePresence mode="wait">
                 <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="min-h-[180px]">
-                  {tab === "explain" && <p className="text-base leading-relaxed">{sampleExplanation}</p>}
+                  {tab === "explain" && <p className="text-base leading-relaxed">{analysisResult.aiExplanation}</p>}
 
                   {tab === "findings" && (
                     <div className="space-y-3">
-                      {sampleFindings.map((f, i) => (
+                      {analysisResult.findings.map((f, i) => (
                         <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl bg-muted/40">
-                          <span className="px-3 py-1 rounded-lg bg-card text-sm font-mono text-muted-foreground border border-border w-fit">{f.term}</span>
+                          <span className="px-3 py-1 rounded-lg bg-card text-sm font-mono text-muted-foreground border border-border w-fit">{f.medicalTerm}</span>
                           <span className="text-muted-foreground hidden sm:inline">→</span>
-                          <span className="text-sm flex-1">{f.plain}</span>
+                          <span className="text-sm flex-1">{f.plainExplanation}</span>
                         </motion.div>
                       ))}
                     </div>
                   )}
 
                   {tab === "means" && (
-                    <p className="text-base leading-relaxed">
-                      Overall, your report shows mild changes that are common and manageable. None of the findings are emergencies. Your doctor will likely want to monitor your heart and lung health over time and may suggest small lifestyle adjustments.
-                    </p>
+                    <p className="text-base leading-relaxed">{analysisResult.whatThisMeans}</p>
                   )}
 
                   {tab === "next" && (
                     <ol className="space-y-3">
-                      {nextStepsList.map((s, i) => (
+                      {analysisResult.nextSteps.map((s, i) => (
                         <li key={i} className="flex gap-3 items-start">
                           <span className="w-7 h-7 rounded-full bg-gradient-primary text-white text-sm font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                           <span className="text-sm pt-1">{s}</span>
@@ -357,11 +402,11 @@ const ResultsPage = () => {
                 initial={{ x: -30, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.3 }}
-                className="h-12 rounded-full bg-warning-light border border-warning/30 flex items-center px-5"
+                className={`h-12 rounded-full ${wl.bg} border ${wl.border} flex items-center px-5`}
               >
-                <div className="w-3 h-3 rounded-full bg-warning mr-3 animate-pulse" />
-                <span className="font-semibold text-warning">🟡 Mild</span>
-                <span className="ml-3 text-sm text-foreground/70">— Monitor and follow up with your doctor</span>
+                <div className={`w-3 h-3 rounded-full ${wl.dot} mr-3 animate-pulse`} />
+                <span className={`font-semibold ${wl.text}`}>{wl.emoji} {analysisResult.worryLevel}</span>
+                <span className="ml-3 text-sm text-foreground/70">— {analysisResult.worryReason}</span>
               </motion.div>
             </motion.div>
 
@@ -374,7 +419,7 @@ const ResultsPage = () => {
                     🧬 Age-Related Factors
                   </span>
                   <ul className="text-sm space-y-1.5 text-foreground/80">
-                    {ageBullets.map((b) => <li key={b}>• {b}</li>)}
+                    {analysisResult.ageRelatedFactors.map((b) => <li key={b}>• {b}</li>)}
                   </ul>
                 </div>
                 <div className="rounded-xl p-5 bg-success-light">
@@ -382,24 +427,24 @@ const ResultsPage = () => {
                     🌿 Environmental Factors
                   </span>
                   <ul className="text-sm space-y-1.5 text-foreground/80">
-                    {envBullets.map((b) => <li key={b}>• {b}</li>)}
+                    {analysisResult.environmentalFactors.map((b) => <li key={b}>• {b}</li>)}
                   </ul>
                 </div>
               </div>
 
               <div className="bg-primary-light rounded-xl p-4 flex gap-3 items-start">
                 <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <p className="text-sm">Most findings appear to be <strong>Age-Related</strong>. Understanding causes helps you take preventive steps.</p>
+                <p className="text-sm">Most findings appear to be <strong>{dominantCause}</strong>. Understanding causes helps you take preventive steps.</p>
               </div>
 
               <div>
                 <div className="flex justify-between text-xs text-muted-foreground mb-2">
                   <span>Cause Breakdown</span>
-                  <span>Age 65% · Environment 35%</span>
+                  <span>Age {agePct}% · Environment {envPct}%</span>
                 </div>
                 <div className="h-3 rounded-full overflow-hidden flex bg-muted">
-                  <motion.div initial={{ width: 0 }} animate={{ width: "65%" }} transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }} style={{ background: "hsl(270 70% 60%)" }} />
-                  <motion.div initial={{ width: 0 }} animate={{ width: "35%" }} transition={{ duration: 1.2, delay: 0.7, ease: "easeOut" }} className="bg-success" />
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${agePct}%` }} transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }} style={{ background: "hsl(270 70% 60%)" }} />
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${envPct}%` }} transition={{ duration: 1.2, delay: 0.7, ease: "easeOut" }} className="bg-success" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">AI estimate for awareness only</p>
               </div>

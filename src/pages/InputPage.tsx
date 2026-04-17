@@ -12,6 +12,7 @@ import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
 import { sampleReport } from "@/lib/sampleData";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useReportStore } from "@/store/reportStore";
 
 type Tab = "paste" | "upload" | "voice" | "scan";
 
@@ -49,18 +50,42 @@ const InputPage = () => {
 
   const steps = ["Reading report...", "Extracting findings...", "Simplifying language..."];
 
-  const analyze = () => {
-    setAnalyzing(true);
-    setStep(0);
+  const analyze = async () => {
     const finalText =
       tab === "paste" ? text :
       tab === "voice" ? voiceText :
       tab === "scan" ? scanText :
       file ? `[Uploaded file: ${file.name}]` : "";
+
+    if (!finalText.trim()) {
+      toast.error("Please enter your report text to continue.");
+      return;
+    }
+
+    if (tab === "upload" && file) {
+      // Try to read text from .txt files; otherwise pass filename note.
+      try {
+        if (file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt")) {
+          const fileText = await file.text();
+          useReportStore.getState().setReportText(fileText);
+        } else {
+          useReportStore.getState().setReportText(
+            `Uploaded file: ${file.name}. (Image/PDF parsing not available in this demo — please paste report text for best results.)`
+          );
+        }
+      } catch {
+        useReportStore.getState().setReportText(`Uploaded file: ${file.name}`);
+      }
+    } else {
+      useReportStore.getState().setReportText(finalText);
+    }
+
     sessionStorage.setItem("decodex-input", finalText);
-    setTimeout(() => setStep(1), 600);
-    setTimeout(() => setStep(2), 1200);
-    setTimeout(() => navigate("/analyzing"), 1800);
+    setAnalyzing(true);
+    setStep(0);
+    setTimeout(() => setStep(1), 400);
+    setTimeout(() => setStep(2), 800);
+    setTimeout(() => navigate("/analyzing"), 1100);
   };
 
   const handleMicToggle = () => {
