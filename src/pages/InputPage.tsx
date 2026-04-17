@@ -164,20 +164,27 @@ const InputPage = () => {
             <AnimatePresence mode="wait">
               {tab === "paste" && (
                 <motion.div key="paste" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  {isSample && (
+                    <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-light border border-primary/30">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-primary">Sample report loaded</span>
+                    </div>
+                  )}
                   <div className="relative group">
                     <div className="absolute top-4 left-4 z-10 pointer-events-none text-primary/60 group-focus-within:text-primary transition-colors">
                       <FileText className="w-5 h-5" />
                     </div>
                     <Textarea
                       value={text}
-                      onChange={(e) => setText(e.target.value.slice(0, 5000))}
-                      placeholder="Example: Chest X-ray shows mild cardiomegaly and bilateral pleural effusion. Lung fields show mild haziness..."
-                      className="min-h-[260px] rounded-2xl border-2 pl-12 pr-4 py-4 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-all resize-none text-base leading-relaxed bg-background/50"
+                      readOnly={isSample}
+                      onChange={(e) => !isSample && setText(e.target.value.slice(0, 5000))}
+                      placeholder="Example Report:&#10;Chest X-ray shows mild cardiomegaly and bilateral pleural effusion. Lung fields show mild haziness..."
+                      className={`min-h-[260px] rounded-2xl border-2 pl-12 pr-4 py-4 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-all resize-none text-base leading-relaxed bg-background/50 ${isSample ? "cursor-default opacity-95" : ""}`}
                     />
                     <div className="flex items-center justify-between mt-3 px-1">
                       <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-primary" />
-                        Paste your medical report — we'll explain it in simple terms.
+                        {isSample ? "Demo report — ready to analyze" : "Paste your medical report here."}
                       </p>
                       <span className="text-xs text-muted-foreground tabular-nums">{text.length} / 5000</span>
                     </div>
