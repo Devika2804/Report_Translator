@@ -83,12 +83,27 @@ const ResultsPage = () => {
     }
   }, [analyzedToastShown]);
 
-  // UI-only WhatsApp delivery confirmation popup (actual send handled externally via n8n)
+  // UI-only WhatsApp delivery confirmation popup — triggers when user scrolls to download section
+  const downloadSectionRef = useRef<HTMLDivElement | null>(null);
+  const popupShownRef = useRef(false);
   useEffect(() => {
     if (!analysisResult) return;
-    const t = setTimeout(() => setShowDeliveryPopup(true), 800);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const el = downloadSectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !popupShownRef.current) {
+            popupShownRef.current = true;
+            setShowDeliveryPopup(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [analysisResult]);
 
   // Cleanup speech synthesis on unmount
