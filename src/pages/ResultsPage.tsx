@@ -402,11 +402,11 @@ const ResultsPage = () => {
                 initial={{ x: -30, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.3 }}
-                className="h-12 rounded-full bg-warning-light border border-warning/30 flex items-center px-5"
+                className={`h-12 rounded-full ${wl.bg} border ${wl.border} flex items-center px-5`}
               >
-                <div className="w-3 h-3 rounded-full bg-warning mr-3 animate-pulse" />
-                <span className="font-semibold text-warning">🟡 Mild</span>
-                <span className="ml-3 text-sm text-foreground/70">— Monitor and follow up with your doctor</span>
+                <div className={`w-3 h-3 rounded-full ${wl.dot} mr-3 animate-pulse`} />
+                <span className={`font-semibold ${wl.text}`}>{wl.emoji} {analysisResult.worryLevel}</span>
+                <span className="ml-3 text-sm text-foreground/70">— {analysisResult.worryReason}</span>
               </motion.div>
             </motion.div>
 
@@ -419,7 +419,7 @@ const ResultsPage = () => {
                     🧬 Age-Related Factors
                   </span>
                   <ul className="text-sm space-y-1.5 text-foreground/80">
-                    {ageBullets.map((b) => <li key={b}>• {b}</li>)}
+                    {analysisResult.ageRelatedFactors.map((b) => <li key={b}>• {b}</li>)}
                   </ul>
                 </div>
                 <div className="rounded-xl p-5 bg-success-light">
@@ -427,24 +427,24 @@ const ResultsPage = () => {
                     🌿 Environmental Factors
                   </span>
                   <ul className="text-sm space-y-1.5 text-foreground/80">
-                    {envBullets.map((b) => <li key={b}>• {b}</li>)}
+                    {analysisResult.environmentalFactors.map((b) => <li key={b}>• {b}</li>)}
                   </ul>
                 </div>
               </div>
 
               <div className="bg-primary-light rounded-xl p-4 flex gap-3 items-start">
                 <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                <p className="text-sm">Most findings appear to be <strong>Age-Related</strong>. Understanding causes helps you take preventive steps.</p>
+                <p className="text-sm">Most findings appear to be <strong>{dominantCause}</strong>. Understanding causes helps you take preventive steps.</p>
               </div>
 
               <div>
                 <div className="flex justify-between text-xs text-muted-foreground mb-2">
                   <span>Cause Breakdown</span>
-                  <span>Age 65% · Environment 35%</span>
+                  <span>Age {agePct}% · Environment {envPct}%</span>
                 </div>
                 <div className="h-3 rounded-full overflow-hidden flex bg-muted">
-                  <motion.div initial={{ width: 0 }} animate={{ width: "65%" }} transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }} style={{ background: "hsl(270 70% 60%)" }} />
-                  <motion.div initial={{ width: 0 }} animate={{ width: "35%" }} transition={{ duration: 1.2, delay: 0.7, ease: "easeOut" }} className="bg-success" />
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${agePct}%` }} transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }} style={{ background: "hsl(270 70% 60%)" }} />
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${envPct}%` }} transition={{ duration: 1.2, delay: 0.7, ease: "easeOut" }} className="bg-success" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">AI estimate for awareness only</p>
               </div>
