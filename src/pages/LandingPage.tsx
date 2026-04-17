@@ -1,8 +1,9 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight, Sparkles, FileSearch, Brain, ShieldCheck, Globe, AlertTriangle,
-  MessageCircle, Heart, Activity,
+  MessageCircle, Heart, Activity, FileText, Upload, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
@@ -31,10 +32,18 @@ const testimonials = [
 const LandingPage = () => {
   const navigate = useNavigate();
   const setReportText = useReportStore((s) => s.setReportText);
+  const [showOptions, setShowOptions] = useState(false);
 
-  const handleTrySample = () => {
-    setReportText(sampleReport);
+  const useSample = () => {
+    setReportText(sampleReport, true);
+    setShowOptions(false);
     navigate("/language");
+  };
+
+  const uploadOwn = () => {
+    setReportText("", false);
+    setShowOptions(false);
+    navigate("/auth");
   };
 
   return (
