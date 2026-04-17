@@ -1,8 +1,9 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight, Sparkles, FileSearch, Brain, ShieldCheck, Globe, AlertTriangle,
-  MessageCircle, Heart, Activity,
+  MessageCircle, Heart, Activity, FileText, Upload, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
@@ -31,10 +32,18 @@ const testimonials = [
 const LandingPage = () => {
   const navigate = useNavigate();
   const setReportText = useReportStore((s) => s.setReportText);
+  const [showOptions, setShowOptions] = useState(false);
 
-  const handleTrySample = () => {
-    setReportText(sampleReport);
+  const useSample = () => {
+    setReportText(sampleReport, true);
+    setShowOptions(false);
     navigate("/language");
+  };
+
+  const uploadOwn = () => {
+    setReportText("", false);
+    setShowOptions(false);
+    navigate("/auth");
   };
 
   return (
@@ -110,18 +119,12 @@ const LandingPage = () => {
             >
               <Button
                 size="lg"
-                onClick={() => navigate("/auth")}
-                className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 h-14 px-10 text-base font-semibold shadow-[0_0_40px_rgba(6,182,212,0.6)] hover:shadow-[0_0_60px_rgba(6,182,212,0.8)] border-0 group transition-all"
+                onClick={() => setShowOptions(true)}
+                className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 h-14 px-12 text-base font-semibold shadow-[0_0_40px_rgba(6,182,212,0.6)] hover:shadow-[0_0_60px_rgba(6,182,212,0.8)] border-0 group transition-all"
               >
                 Decode My Report
                 <ArrowRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <button
-                onClick={handleTrySample}
-                className="text-sm text-cyan-200/90 hover:text-cyan-100 underline-offset-4 hover:underline transition-colors px-4 py-2"
-              >
-                ✨ Try with Sample Report
-              </button>
             </motion.div>
 
             <motion.p
@@ -247,6 +250,71 @@ const LandingPage = () => {
           </div>
         </footer>
 
+        {/* CTA Options Modal */}
+        <AnimatePresence>
+          {showOptions && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowOptions(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 20 }}
+                transition={{ type: "spring", stiffness: 300, damping: 28 }}
+                className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[92vw] max-w-md rounded-3xl p-6 bg-[#0B1A2F] border border-cyan-400/30 shadow-[0_0_60px_rgba(6,182,212,0.4)]"
+              >
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h3 className="text-xl font-bold text-white">How would you like to start?</h3>
+                    <p className="text-sm text-white/60 mt-0.5">Choose an option to begin decoding.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowOptions(false)}
+                    className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    onClick={useSample}
+                    className="w-full text-left p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/50 transition-all group flex items-center gap-4"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center flex-shrink-0 shadow-[0_0_20px_rgba(6,182,212,0.4)]">
+                      <FileText className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-white">📄 Use Sample Report</p>
+                      <p className="text-sm text-white/60">Try Decodex instantly with a demo X-ray</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-white/40 group-hover:text-cyan-300 group-hover:translate-x-1 transition-all" />
+                  </button>
+
+                  <button
+                    onClick={uploadOwn}
+                    className="w-full text-left p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/50 transition-all group flex items-center gap-4"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-emerald-400 flex items-center justify-center flex-shrink-0 shadow-[0_0_20px_rgba(6,182,212,0.4)]">
+                      <Upload className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-white">⬆ Upload Your Report</p>
+                      <p className="text-sm text-white/60">Sign in and analyze your own report</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-white/40 group-hover:text-cyan-300 group-hover:translate-x-1 transition-all" />
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
     </PageTransition>
   );

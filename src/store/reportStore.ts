@@ -40,10 +40,14 @@ interface ReportStore {
   languageCode: string;   // BCP-47, e.g. "en-US"
   analysisResult: AnalysisResult | null;
   analysisError: string | null;
-  setReportText: (text: string) => void;
+  isSample: boolean;
+  userName: string;
+  phoneNumber: string;
+  setReportText: (text: string, isSample?: boolean) => void;
   setLanguage: (name: string, code: string) => void;
   setAnalysisResult: (result: AnalysisResult | null) => void;
   setAnalysisError: (err: string | null) => void;
+  setUserContact: (name: string, phone: string) => void;
   reset: () => void;
 }
 
@@ -53,9 +57,13 @@ export const useReportStore = create<ReportStore>((set) => ({
   languageCode: "en-US",
   analysisResult: null,
   analysisError: null,
-  setReportText: (text) => set({ reportText: text }),
+  isSample: false,
+  userName: "",
+  phoneNumber: "",
+  setReportText: (text, isSample = false) => set({ reportText: text, isSample }),
   setLanguage: (name, code) => set({ language: name, languageCode: code }),
   setAnalysisResult: (result) => set({ analysisResult: result, analysisError: null }),
   setAnalysisError: (err) => set({ analysisError: err }),
-  reset: () => set({ reportText: "", analysisResult: null, analysisError: null }),
+  setUserContact: (name, phone) => set({ userName: name, phoneNumber: phone }),
+  reset: () => set({ reportText: "", analysisResult: null, analysisError: null, isSample: false }),
 }));

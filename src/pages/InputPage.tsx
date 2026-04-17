@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
@@ -25,13 +26,16 @@ const tabs: { id: Tab; icon: any; label: string }[] = [
 
 const InputPage = () => {
   const navigate = useNavigate();
+  const { reportText: storedText, isSample, phoneNumber: storedPhone, userName: storedName, setUserContact } = useReportStore();
   const [tab, setTab] = useState<Tab>("paste");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(isSample ? storedText : "");
   const [file, setFile] = useState<File | null>(null);
   const [voiceText, setVoiceText] = useState("");
   const [scanText, setScanText] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
+  const [phone, setPhone] = useState(storedPhone || "");
+  const [name, setName] = useState(storedName || "");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const lang = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang-code")) || "en-US";
@@ -115,6 +119,7 @@ const InputPage = () => {
                   setVoiceText("");
                   setScanText("");
                   speech.reset();
+                  useReportStore.getState().setReportText("", false);
                 }}
               >
                 New Report
@@ -161,20 +166,27 @@ const InputPage = () => {
             <AnimatePresence mode="wait">
               {tab === "paste" && (
                 <motion.div key="paste" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  {isSample && (
+                    <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-light border border-primary/30">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-primary">Sample report loaded</span>
+                    </div>
+                  )}
                   <div className="relative group">
                     <div className="absolute top-4 left-4 z-10 pointer-events-none text-primary/60 group-focus-within:text-primary transition-colors">
                       <FileText className="w-5 h-5" />
                     </div>
                     <Textarea
                       value={text}
-                      onChange={(e) => setText(e.target.value.slice(0, 5000))}
-                      placeholder="Example: Chest X-ray shows mild cardiomegaly and bilateral pleural effusion. Lung fields show mild haziness..."
-                      className="min-h-[260px] rounded-2xl border-2 pl-12 pr-4 py-4 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-all resize-none text-base leading-relaxed bg-background/50"
+                      readOnly={isSample}
+                      onChange={(e) => !isSample && setText(e.target.value.slice(0, 5000))}
+                      placeholder="Example Report:&#10;Chest X-ray shows mild cardiomegaly and bilateral pleural effusion. Lung fields show mild haziness..."
+                      className={`min-h-[260px] rounded-2xl border-2 pl-12 pr-4 py-4 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-all resize-none text-base leading-relaxed bg-background/50 ${isSample ? "cursor-default opacity-95" : ""}`}
                     />
                     <div className="flex items-center justify-between mt-3 px-1">
                       <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-primary" />
-                        Paste your medical report — we'll explain it in simple terms.
+                        {isSample ? "Demo report — ready to analyze" : "Paste your medical report here."}
                       </p>
                       <span className="text-xs text-muted-foreground tabular-nums">{text.length} / 5000</span>
                     </div>
@@ -349,11 +361,38 @@ const InputPage = () => {
             </AnimatePresence>
           </div>
 
+          {/* Optional contact for WhatsApp delivery */}
+          <div className="mt-6 bg-card rounded-2xl p-5 shadow-card-soft border border-border">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="font-semibold text-sm">📱 Auto-deliver report to WhatsApp</p>
+                <p className="text-xs text-muted-foreground">Optional — we'll send your simplified report after analysis.</p>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="rounded-xl"
+              />
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="WhatsApp number (e.g. +91 98765 43210)"
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+
           {/* Analyze button */}
           <div className="mt-6">
             <Button
               disabled={!hasContent || analyzing}
-              onClick={analyze}
+              onClick={() => {
+                setUserContact(name.trim(), phone.trim());
+                analyze();
+              }}
               className="w-full h-14 rounded-xl bg-gradient-primary hover:opacity-90 shadow-glow text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none group"
             >
               {analyzing ? (
