@@ -87,6 +87,45 @@ const ResultsPage = () => {
     }
   }, [analyzedToastShown]);
 
+  // Auto-send to WhatsApp via n8n webhook (only if phone number was provided)
+  useEffect(() => {
+    if (whatsappSent) return;
+    if (!analysisResult) return;
+    if (!phoneNumber || !phoneNumber.trim()) return;
+
+    const send = async () => {
+      setWhatsappSent(true);
+      setWhatsappStatus("sending");
+      try {
+        const res = await fetch(N8N_WEBHOOK, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: userName || "Patient",
+            phone: phoneNumber.trim(),
+            summary: analysisResult.summary,
+            findings: analysisResult.findings,
+            nextSteps: analysisResult.nextSteps,
+            worryLevel: analysisResult.worryLevel,
+            language: language,
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setWhatsappStatus("sent");
+        toast.success("📱 Report automatically sent to your WhatsApp");
+      } catch (e) {
+        console.error("Auto WhatsApp send failed", e);
+        setWhatsappStatus("failed");
+        toast.error("❌ Failed to send report. Please try again.");
+      }
+    };
+
+    // small delay so the success toast lands first
+    const t = setTimeout(send, 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysisResult, phoneNumber, whatsappSent]);
+
   // Cleanup speech synthesis on unmount
   useEffect(() => {
     // Force voices to load (Chrome populates async)
