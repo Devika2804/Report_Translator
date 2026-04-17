@@ -1,3 +1,4 @@
+// Decodex report store
 import { create } from "zustand";
 
 export interface Finding {
