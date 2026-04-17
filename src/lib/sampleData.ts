@@ -1,16 +1,4 @@
-export const sampleReport = `CHEST X-RAY REPORT — PA VIEW
-Patient: Demo Patient | Date: January 15, 2025
-Referring Doctor: Dr. S. Kumar | Hospital: City Medical Center
-
-FINDINGS:
-The cardiac silhouette is mildly enlarged with a cardiothoracic ratio of approximately 0.55. Both lung fields show mild haziness in the bilateral lower zones suggestive of early pulmonary venous hypertension or early pulmonary edema. The pulmonary vascularity appears mildly prominent. Both costophrenic angles are blunted, suggesting minimal pleural effusion bilaterally. The trachea is central. The mediastinum is not widened. No pneumothorax is identified. The osseous structures are intact with no acute fracture or dislocation.
-
-IMPRESSION:
-1. Mild cardiomegaly (CTR ~0.55)
-2. Bilateral lower zone haziness — early pulmonary congestion
-3. Minimal bilateral pleural effusion
-4. No pneumothorax
-5. Osseous structures intact`;
+export const sampleReport = `Chest X-ray PA view: Mild cardiomegaly noted. Lung fields show mild haziness in bilateral lower zones, suggestive of early pulmonary congestion. No pneumothorax. Costophrenic angles are blunted bilaterally. Bony thorax is intact. Impression: Mild cardiomegaly with early signs of congestive cardiac failure.`;
 
 export const sampleExplanation = `Your chest X-ray shows that your heart is slightly larger than usual, and there are some early signs of fluid buildup in the lower parts of your lungs. This is something your doctor will want to monitor, but it is not an emergency. The bones in your chest look completely normal.`;
 

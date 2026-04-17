@@ -115,16 +115,22 @@ const LandingPage = () => {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.35 }}
-              className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-6"
+              className="flex flex-col gap-3 justify-center items-center pt-6"
             >
               <Button
                 size="lg"
-                onClick={() => setShowOptions(true)}
+                onClick={uploadOwn}
                 className="rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 h-14 px-12 text-base font-semibold shadow-[0_0_40px_rgba(6,182,212,0.6)] hover:shadow-[0_0_60px_rgba(6,182,212,0.8)] border-0 group transition-all"
               >
                 Decode My Report
                 <ArrowRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
               </Button>
+              <button
+                onClick={useSample}
+                className="text-sm text-cyan-200/90 hover:text-white transition-colors inline-flex items-center gap-1.5 underline-offset-4 hover:underline"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Try Sample Report
+              </button>
             </motion.div>
 
             <motion.p
