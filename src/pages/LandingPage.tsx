@@ -1,15 +1,15 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowRight, Play, FileSearch, Brain, ShieldCheck, Globe, AlertTriangle,
-  MessageCircle, Sparkles, Heart, Activity,
+  ArrowRight, Sparkles, FileSearch, Brain, ShieldCheck, Globe, AlertTriangle,
+  MessageCircle, Heart, Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
 import { AnimatedDarkBackground } from "@/components/AnimatedDarkBackground";
-import { WatchDemoModal } from "@/components/WatchDemoModal";
+import { useReportStore } from "@/store/reportStore";
+import { sampleChestXray } from "@/lib/sampleData";
 
 const features = [
   { icon: FileSearch, title: "Smart Report Reading", desc: "Understands radiology, blood tests, MRIs, CT scans and more" },
