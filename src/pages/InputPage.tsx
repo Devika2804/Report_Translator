@@ -360,11 +360,38 @@ const InputPage = () => {
             </AnimatePresence>
           </div>
 
+          {/* Optional contact for WhatsApp delivery */}
+          <div className="mt-6 bg-card rounded-2xl p-5 shadow-card-soft border border-border">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="font-semibold text-sm">📱 Auto-deliver report to WhatsApp</p>
+                <p className="text-xs text-muted-foreground">Optional — we'll send your simplified report after analysis.</p>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="rounded-xl"
+              />
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="WhatsApp number (e.g. +91 98765 43210)"
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+
           {/* Analyze button */}
           <div className="mt-6">
             <Button
               disabled={!hasContent || analyzing}
-              onClick={analyze}
+              onClick={() => {
+                setUserContact(name.trim(), phone.trim());
+                analyze();
+              }}
               className="w-full h-14 rounded-xl bg-gradient-primary hover:opacity-90 shadow-glow text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none group"
             >
               {analyzing ? (
