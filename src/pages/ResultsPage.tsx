@@ -10,11 +10,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
-import {
-  sampleExplanation, sampleFindings, summaryBullets, recentReports, getMockAIResponse,
-} from "@/lib/sampleData";
+import { recentReports } from "@/lib/sampleData";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { generateReportPDF } from "@/lib/generatePDF";
+import { useReportStore } from "@/store/reportStore";
+import { supabase } from "@/integrations/supabase/client";
 
 type ResultTab = "explain" | "findings" | "means" | "next";
 const resultTabs: { id: ResultTab; label: string }[] = [
@@ -33,25 +33,19 @@ const faqs = [
 
 const promptChips = ["What does this mean?", "Should I be worried?", "What next?"];
 
-const ageBullets = [
-  "Natural changes in heart muscle elasticity",
-  "Gradual cardiovascular wear over time",
-  "Common in adults 50+",
-];
-const envBullets = [
-  "Diet and sodium intake",
-  "Physical activity levels",
-  "Air quality and smoking exposure",
-];
-const nextStepsList = [
-  "Schedule a follow-up with your doctor within 1–2 weeks",
-  "Bring this report and any prior tests to the visit",
-  "Track any symptoms like shortness of breath or swelling",
-  "Stay hydrated and follow any prescribed medications",
-];
-
 const ResultsPage = () => {
   const navigate = useNavigate();
+  const { analysisResult, reportText, language, languageCode } = useReportStore();
+
+  // If user landed here without analysis, send them back to input
+  useEffect(() => {
+    if (!analysisResult) {
+      toast.error("No analysis found. Please submit a report first.");
+      navigate("/input");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [tab, setTab] = useState<ResultTab>("explain");
   const [showAsk, setShowAsk] = useState(false);
   const [askTab, setAskTab] = useState<"voice" | "type">("voice");
