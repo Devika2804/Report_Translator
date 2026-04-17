@@ -161,18 +161,22 @@ const InputPage = () => {
             <AnimatePresence mode="wait">
               {tab === "paste" && (
                 <motion.div key="paste" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <div className="relative">
+                  <div className="relative group">
+                    <div className="absolute top-4 left-4 z-10 pointer-events-none text-primary/60 group-focus-within:text-primary transition-colors">
+                      <FileText className="w-5 h-5" />
+                    </div>
                     <Textarea
                       value={text}
                       onChange={(e) => setText(e.target.value.slice(0, 5000))}
-                      placeholder="Paste your radiology report, blood test results, or medical notes here..."
-                      className="min-h-[240px] rounded-xl border-2 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-shadow resize-none text-base"
+                      placeholder="Example: Chest X-ray shows mild cardiomegaly and bilateral pleural effusion. Lung fields show mild haziness..."
+                      className="min-h-[260px] rounded-2xl border-2 pl-12 pr-4 py-4 focus:border-primary focus-visible:ring-0 focus:shadow-glow transition-all resize-none text-base leading-relaxed bg-background/50"
                     />
-                    <div className="flex items-center justify-between mt-3">
-                      <Button variant="ghost" size="sm" onClick={() => setText(sampleReport)} className="text-primary">
-                        <Sparkles className="w-4 h-4 mr-1" /> Try Sample Report
-                      </Button>
-                      <span className="text-sm text-muted-foreground">{text.length} / 5000</span>
+                    <div className="flex items-center justify-between mt-3 px-1">
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        Paste your medical report — we'll explain it in simple terms.
+                      </p>
+                      <span className="text-xs text-muted-foreground tabular-nums">{text.length} / 5000</span>
                     </div>
                   </div>
                 </motion.div>
