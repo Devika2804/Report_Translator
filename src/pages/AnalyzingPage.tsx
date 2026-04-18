@@ -102,8 +102,50 @@ const AnalyzingPage = () => {
 
       console.log("Using mock analysis data for demo...");
 
-      // ✅ TEMP FIX FOR DEMO
-      const mockData = {
+      // ✅ TEMP FIX FOR DEMO WITH HINDI SUPPORT
+      const isHindi = selectedLanguage.toLowerCase().includes("hindi");
+
+      const mockData = isHindi ? {
+        summary: [
+          "आपका हृदय थोड़ा बड़ा हुआ दिखाई देता है।",
+          "फेफड़ों में तरल पदार्थ के हल्के संकेत हैं।"
+        ],
+        worryLevel: "Mild",
+        findings: [
+          {
+            term: "Cardiomegaly",
+            explanation: "हृदय थोड़ा बड़ा हो गया है"
+          },
+          {
+            term: "Pleural Effusion",
+            explanation: "फेफड़ों में तरल पदार्थ का थोड़ा जमाव"
+          }
+        ],
+        aiExplanation:
+          "आपकी रिपोर्ट हृदय के हल्के विस्तार और तरल पदार्थ के छोटे जमाव को दिखाती है। यह आपात स्थिति नहीं है लेकिन इसकी निगरानी की जानी चाहिए।",
+        whatThisMeans:
+          "ये निष्कर्ष प्रारंभिक परिवर्तनों का सुझाव देते हैं जिनके लिए चिकित्सा अनुवर्ती कार्रवाई की आवश्यकता हो सकती है।",
+        nextSteps: [
+          "हृदय रोग विशेषज्ञ से परामर्श लें",
+          "दोबारा इमेजिंग के साथ अनुवर्ती कार्रवाई करें",
+          "स्वस्थ जीवनशैली बनाए रखें"
+        ],
+        possibleCauses: {
+          agePercent: 40,
+          envPercent: 60,
+          ageRelated: ["प्राकृतिक उम्र बढ़ने की प्रक्रिया"],
+          environmental: ["गतिहीन जीवनशैली"]
+        },
+        worryColor: "yellow",
+        fullReport: {
+          reportType: "रेडियोलॉजी रिपोर्ट",
+          detailedFindings: [],
+          clinicalInterpretation: ["अनुवर्ती कार्रवाई की आवश्यकता वाले हल्के निष्कर्ष।"],
+          avoidList: [],
+          helpList: ["नियमित व्यायाम", "हृदय के लिए स्वस्थ आहार"],
+          doctorQuestions: ["हृदय का विस्तार कितना महत्वपूर्ण है?"]
+        }
+      } : {
         summary: [
           "Your heart appears slightly enlarged.",
           "There are mild signs of fluid in the lungs."

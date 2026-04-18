@@ -325,7 +325,16 @@ const ResultsPage = () => {
       // Simulate network delay
       await new Promise(r => setTimeout(r, 2000));
       
-      const mockAnswers: Record<string, string> = {
+      const isHindi = langName.toLowerCase().includes("hindi");
+      
+      const mockAnswers: Record<string, string> = isHindi ? {
+        "What does this mean?": "इसका मतलब है कि आपकी रिपोर्ट में कुछ मामूली निष्कर्ष हैं जिनके बारे में डॉक्टर से चर्चा की जानी चाहिए, लेकिन उन्हें आमतौर पर आपातकालीन नहीं माना जाता है।",
+        "Should I be worried?": "विश्लेषण 'हल्का' चिंता स्तर इंगित करता है। जबकि आपको एक पेशेवर के साथ अनुवर्ती कार्रवाई करनी चाहिए, तत्काल घबराहट का कोई कारण नहीं है।",
+        "What next?": "आपको इन निष्कर्षों पर विस्तार से चर्चा करने के लिए हृदय रोग विशेषज्ञ के साथ नियमित नियुक्ति निर्धारित करनी चाहिए।",
+        "इसका क्या मतलब है?": "इसका मतलब है कि आपकी रिपोर्ट में कुछ मामूली निष्कर्ष हैं जिनके बारे में डॉक्टर से चर्चा की जानी चाहिए, लेकिन उन्हें आमतौर पर आपातकालीन नहीं माना जाता है।",
+        "क्या मुझे चिंतित होना चाहिए?": "विश्लेषण 'हल्का' चिंता स्तर इंगित करता है। जबकि आपको एक पेशेवर के साथ अनुवर्ती कार्रवाई करनी चाहिए, तत्काल घबराहट का कोई कारण नहीं है।",
+        "आगे क्या?": "आपको इन निष्कर्षों पर विस्तार से चर्चा करने के लिए हृदय रोग विशेषज्ञ के साथ नियमित नियुक्ति निर्धारित करनी चाहिए।",
+      } : {
         "What does this mean?": "It means there are some minor findings in your report that should be discussed with a doctor, but they are not typically considered emergencies.",
         "Should I be worried?": "The analysis indicates a 'Mild' worry level. While you should follow up with a professional, there is no immediate cause for alarm.",
         "What next?": "You should schedule a routine appointment with a cardiologist to discuss these findings in detail.",
@@ -878,7 +887,10 @@ const ResultsPage = () => {
                 )}
 
                 <div className="flex gap-2 flex-wrap my-3">
-                  {promptChips.map((c) => (
+                  {(langName.toLowerCase().includes("hindi") 
+                    ? ["इसका क्या मतलब है?", "क्या मुझे चिंतित होना चाहिए?", "आगे क्या?"]
+                    : ["What does this mean?", "Should I be worried?", "What next?"]
+                  ).map((c) => (
                     <button
                       key={c}
                       onClick={() => setAskInput(c)}
