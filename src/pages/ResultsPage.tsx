@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { formatSupabaseFunctionError } from "@/lib/formatSupabaseFunctionError";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2, Download, Share2, Clipboard, Lightbulb, ChevronDown, History, FileText,
   Calendar, Mail, Phone, MessageSquare, Headphones, ShieldCheck, Mic, MessageCircle, X, Send,
-  Plus, Bot, Info, Volume2, Square, AlertCircle,
+  Plus, Bot, Info, Volume2, Square, AlertCircle, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +17,12 @@ import { recentReports } from "@/lib/sampleData";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { generateReportPDF } from "@/lib/generatePDF";
 import { useReportStore } from "@/store/reportStore";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  extractAnalysisPayload,
+  isDecodexApiAnalysis,
+  mapDecodexApiToAnalysisResult,
+} from "@/lib/mapDecodexAnalysisResponse";
+
 
 type ResultTab = "explain" | "findings" | "means" | "next";
 const resultTabs: { id: ResultTab; label: string }[] = [
@@ -36,16 +43,77 @@ const promptChips = ["What does this mean?", "Should I be worried?", "What next?
 
 const ResultsPage = () => {
   const navigate = useNavigate();
-  const { analysisResult, reportText, language, languageCode, userName, phoneNumber } = useReportStore();
+  const analysisResult = useReportStore((s) => s.analysisResult);
+  const reportText = useReportStore((s) => s.reportText);
+  const language = useReportStore((s) => s.language);
+  const languageCode = useReportStore((s) => s.languageCode);
+  const userName = useReportStore((s) => s.userName);
+  const phoneNumber = useReportStore((s) => s.phoneNumber);
+  const setAnalysisResult = useReportStore((s) => s.setAnalysisResult);
+  const setReportText = useReportStore((s) => s.setReportText);
 
-  // If user landed here without analysis, send them back to input
+  const saveReportToSupabase = async () => {
+    try {
+      const ar = useReportStore.getState().analysisResult;
+      const { data, error } = await supabase
+        .from("reports")
+        .insert([
+          {
+            name: userName || "Unknown",
+            phone: phoneNumber || "0000000000",
+            summary: ar?.summary?.join(" ") || "",
+            severity: ar?.worryLevel || "Unknown",
+          },
+        ]);
+
+      if (error) {
+        console.error("❌ Supabase Error:", error);
+      } else {
+        console.log("✅ Report saved:", data);
+      }
+    } catch (err) {
+      console.error("🔥 Insert failed:", err);
+    }
+  };
+
+  const [hydrated, setHydrated] = useState(false);
+
   useEffect(() => {
-    if (!analysisResult) {
+    const stored = localStorage.getItem("decodex_analysis");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        console.log("Results: parsed decodex_analysis from localStorage", parsed);
+        const payload = extractAnalysisPayload(parsed);
+        if (isDecodexApiAnalysis(payload)) {
+          setAnalysisResult(mapDecodexApiToAnalysisResult(payload));
+        }
+      } catch (e) {
+        console.error("Failed to parse analysis:", e);
+        setHydrated(true);
+        toast.error("No analysis found. Please submit a report first.");
+        navigate("/input");
+        return;
+      }
+    }
+    const rt = localStorage.getItem("decodex_report_text");
+    if (rt) setReportText(rt, false);
+    console.log("Stored in localStorage:", localStorage.getItem("decodex_analysis"));
+    setHydrated(true);
+  }, [navigate, setAnalysisResult, setReportText]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!useReportStore.getState().analysisResult) {
       toast.error("No analysis found. Please submit a report first.");
       navigate("/input");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrated, navigate]);
+  useEffect(() => {
+    if (analysisResult && userName && phoneNumber) {
+      saveReportToSupabase();
+    }
+  }, [analysisResult, userName, phoneNumber]);
 
   const [tab, setTab] = useState<ResultTab>("explain");
   const [showAsk, setShowAsk] = useState(false);
@@ -188,7 +256,7 @@ const ResultsPage = () => {
           language: langName,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await formatSupabaseFunctionError(error, "ask-doubt"));
       if (data?.error) throw new Error(data.error);
       const resp = data?.answer || "Sorry, I couldn't get an answer.";
       setAskResponse(resp);
@@ -239,12 +307,12 @@ const ResultsPage = () => {
     }
   };
 
-  // Render guard while redirecting
-  if (!analysisResult) {
+  if (!hydrated || !analysisResult) {
     return (
       <PageTransition>
-        <div className="min-h-screen flex items-center justify-center bg-surface">
-          <p className="text-muted-foreground">Loading…</p>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-surface gap-3">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading analysis…</p>
         </div>
       </PageTransition>
     );
@@ -256,7 +324,19 @@ const ResultsPage = () => {
     Moderate: { bg: "bg-orange-100",        text: "text-orange-700",  emoji: "🟠", border: "border-orange-300",     dot: "bg-orange-500" },
     High:     { bg: "bg-destructive/10",    text: "text-destructive", emoji: "🔴", border: "border-destructive/30", dot: "bg-destructive" },
   };
-  const wl = worryStyle[analysisResult.worryLevel] || worryStyle.Mild;
+  const worryColorToLevel: Record<string, keyof typeof worryStyle> = {
+    green: "Low",
+    yellow: "Mild",
+    orange: "Moderate",
+    red: "High",
+  };
+  const levelFromColor = analysisResult.worryColor
+    ? worryColorToLevel[analysisResult.worryColor]
+    : undefined;
+  const wl =
+    (levelFromColor && worryStyle[levelFromColor]) ||
+    worryStyle[analysisResult.worryLevel] ||
+    worryStyle.Mild;
   const agePct = Math.max(0, Math.min(100, analysisResult.ageRelatedPercent || 0));
   const envPct = Math.max(0, Math.min(100, analysisResult.environmentalPercent || 0));
   const dominantCause = agePct >= envPct ? "Age-Related" : "Environmental";

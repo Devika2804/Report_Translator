@@ -1,1 +1,10 @@
-project_id = "lfxcowxyeqrlorcyzofw"
+# Must match the subdomain of VITE_SUPABASE_URL (https://<project-ref>.supabase.co)
+project_id = "ywsxdvjrvgltlddzvuqr"
+
+# New publishable keys (sb_publishable_…) are not JWTs; disable gateway JWT verification so invokes work.
+# See: https://supabase.com/docs/guides/functions/function-configuration
+[functions.analyze-report]
+verify_jwt = false
+
+[functions.ask-doubt]
+verify_jwt = false

@@ -33,6 +33,8 @@ export interface AnalysisResult {
   lifestyleHelps: string[];
   doctorQuestions: string[];
   fullReportText: string;
+  /** Optional; when set (e.g. from Edge Function), can drive badge styling alongside `worryLevel`. */
+  worryColor?: "green" | "yellow" | "orange" | "red";
 }
 
 interface ReportStore {

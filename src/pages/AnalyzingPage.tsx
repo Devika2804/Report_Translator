@@ -6,7 +6,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/PageTransition";
 import { supabase } from "@/integrations/supabase/client";
-import { useReportStore, AnalysisResult } from "@/store/reportStore";
+import { formatSupabaseFunctionError } from "@/lib/formatSupabaseFunctionError";
+import { useReportStore } from "@/store/reportStore";
+import {
+  extractAnalysisPayload,
+  isDecodexApiAnalysis,
+  mapDecodexApiToAnalysisResult,
+} from "@/lib/mapDecodexAnalysisResponse";
 
 const statusMessages = [
   "Scanning for medical terminology...",
@@ -50,26 +56,48 @@ const AnalyzingPage = () => {
         throw new Error("No report text found. Please go back and enter your report.");
       }
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       const apiCall = supabase.functions.invoke("analyze-report", {
-        body: { reportText, language },
+        body: {
+          reportText,
+          language: language || "English",
+          userId: user?.id ?? null,
+        },
       });
       const minDelay = new Promise((r) => setTimeout(r, 4000));
 
-      const [{ data, error }] = await Promise.all([apiCall, minDelay]) as any;
+      const [{ data, error }] = await Promise.all([apiCall, minDelay]);
 
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       clearInterval(progInt);
 
       if (error) {
-        const msg = error.context?.body
-          ? (await error.context.json?.())?.error || error.message
-          : error.message;
-        throw new Error(msg || "Analysis failed");
+        console.error("Function error:", error);
+        throw new Error(await formatSupabaseFunctionError(error, "analyze-report"));
       }
-      if (data?.error) throw new Error(data.error);
-      if (!data?.analysis) throw new Error("No analysis returned");
+      if (data?.error) throw new Error(String(data.error));
 
-      setAnalysisResult(data.analysis as AnalysisResult);
+      console.log("Analysis data received:", data);
+
+      if (!data) {
+        throw new Error("No analysis returned");
+      }
+
+      const payload = extractAnalysisPayload(data);
+      if (!isDecodexApiAnalysis(payload)) {
+        throw new Error("No analysis returned");
+      }
+
+      const analysis = mapDecodexApiToAnalysisResult(payload);
+      setAnalysisResult(analysis);
+
+      localStorage.setItem("decodex_analysis", JSON.stringify(data));
+      localStorage.setItem("decodex_report_text", reportText);
+      console.log("Stored in localStorage:", localStorage.getItem("decodex_analysis"));
+
       setProgress(100);
       navigate("/results");
     } catch (e: any) {
