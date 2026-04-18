@@ -325,20 +325,37 @@ const ResultsPage = () => {
       // Simulate network delay
       await new Promise(r => setTimeout(r, 2000));
       
-      const isHindi = langName.toLowerCase().includes("hindi");
+      const lowerLang = langName.toLowerCase();
+      const isHindi = lowerLang.includes("hindi");
+      const isTamil = lowerLang.includes("tamil");
       
-      const mockAnswers: Record<string, string> = isHindi ? {
-        "What does this mean?": "इसका मतलब है कि आपकी रिपोर्ट में कुछ मामूली निष्कर्ष हैं जिनके बारे में डॉक्टर से चर्चा की जानी चाहिए, लेकिन उन्हें आमतौर पर आपातकालीन नहीं माना जाता है।",
-        "Should I be worried?": "विश्लेषण 'हल्का' चिंता स्तर इंगित करता है। जबकि आपको एक पेशेवर के साथ अनुवर्ती कार्रवाई करनी चाहिए, तत्काल घबराहट का कोई कारण नहीं है।",
-        "What next?": "आपको इन निष्कर्षों पर विस्तार से चर्चा करने के लिए हृदय रोग विशेषज्ञ के साथ नियमित नियुक्ति निर्धारित करनी चाहिए।",
-        "इसका क्या मतलब है?": "इसका मतलब है कि आपकी रिपोर्ट में कुछ मामूली निष्कर्ष हैं जिनके बारे में डॉक्टर से चर्चा की जानी चाहिए, लेकिन उन्हें आमतौर पर आपातकालीन नहीं माना जाता है।",
-        "क्या मुझे चिंतित होना चाहिए?": "विश्लेषण 'हल्का' चिंता स्तर इंगित करता है। जबकि आपको एक पेशेवर के साथ अनुवर्ती कार्रवाई करनी चाहिए, तत्काल घबराहट का कोई कारण नहीं है।",
-        "आगे क्या?": "आपको इन निष्कर्षों पर विस्तार से चर्चा करने के लिए हृदय रोग विशेषज्ञ के साथ नियमित नियुक्ति निर्धारित करनी चाहिए।",
-      } : {
-        "What does this mean?": "It means there are some minor findings in your report that should be discussed with a doctor, but they are not typically considered emergencies.",
-        "Should I be worried?": "The analysis indicates a 'Mild' worry level. While you should follow up with a professional, there is no immediate cause for alarm.",
-        "What next?": "You should schedule a routine appointment with a cardiologist to discuss these findings in detail.",
-      };
+      let mockAnswers: Record<string, string>;
+
+      if (isHindi) {
+        mockAnswers = {
+          "What does this mean?": "इसका मतलब है कि आपकी रिपोर्ट में कुछ मामूली निष्कर्ष हैं जिनके बारे में डॉक्टर से चर्चा की जानी चाहिए, लेकिन उन्हें आमतौर पर आपातकालीन नहीं माना जाता है।",
+          "Should I be worried?": "विश्लेषण 'हल्का' चिंता स्तर इंगित करता है। जबकि आपको एक पेशेवर के साथ अनुवर्ती कार्रवाई करनी चाहिए, तत्काल घबराहट का कोई कारण नहीं है।",
+          "What next?": "आपको इन निष्कर्षों पर विस्तार से चर्चा करने के लिए हृदय रोग विशेषज्ञ के साथ नियमित नियुक्ति निर्धारित करनी चाहिए।",
+          "इसका क्या मतलब है?": "इसका मतलब है कि आपकी रिपोर्ट में कुछ मामूली निष्कर्ष हैं जिनके बारे में डॉक्टर से चर्चा की जानी चाहिए, लेकिन उन्हें आमतौर पर आपातकालीन नहीं माना जाता है।",
+          "क्या मुझे चिंतित होना चाहिए?": "विश्लेषण 'हल्का' चिंता स्तर इंगित करता है। जबकि आपको एक पेशेवर के साथ अनुवर्ती कार्रवाई करनी चाहिए, तत्काल घबराहट का कोई कारण नहीं है।",
+          "आगे क्या?": "आपको इन निष्कर्षों पर विस्तार से चर्चा करने के लिए हृदय रोग विशेषज्ञ के साथ नियमित नियुक्ति निर्धारित करनी चाहिए।",
+        };
+      } else if (isTamil) {
+        mockAnswers = {
+          "What does this mean?": "இதன் பொருள் உங்கள் அறிக்கையில் சில சிறிய கண்டுபிடிப்புகள் உள்ளன, அவை மருத்துவரிடம் விவாதிக்கப்பட வேண்டும், ஆனால் அவை பொதுவாக அவசரநிலையாகக் கருதப்படுவதில்லை.",
+          "Should I be worried?": "பகுப்பாய்வு 'லேசான' கவலை அளவைக் குறிக்கிறது. நீங்கள் ஒரு நிபுணருடன் தொடர் நடவடிக்கை எடுக்க வேண்டும் என்றாலும், உடனடி பயத்திற்கு எந்த காரணமும் இல்லை.",
+          "What next?": "இந்த கண்டுபிடிப்புகளை விரிவாக விவாதிக்க நீங்கள் ஒரு இதய நிபுணருடன் வழக்கமான சந்திப்பைத் திட்டமிட வேண்டும்.",
+          "இதன் பொருள் என்ன?": "இதன் பொருள் உங்கள் அறிக்கையில் சில சிறிய கண்டுபிடிப்புகள் உள்ளன, அவை மருத்துவரிடம் விவாதிக்கப்பட வேண்டும், ஆனால் அவை பொதுவாக அவசரநிலையாகக் கருதப்படுவதில்லை.",
+          "நான் கவலைப்பட வேண்டுமா?": "பகுப்பாய்வு 'லேசான' கவலை அளவைக் குறிக்கிறது. நீங்கள் ஒரு நிபுணருடன் தொடர் நடவடிக்கை எடுக்க வேண்டும் என்றாலும், உடனடி பயத்திற்கு எந்த காரணமும் இல்லை.",
+          "அடுத்து என்ன?": "இந்த கண்டுபிடிப்புகளை விரிவாக விவாதிக்க நீங்கள் ஒரு இதய நிபுணருடன் வழக்கமான சந்திப்பைத் திட்டமிட வேண்டும்.",
+        };
+      } else {
+        mockAnswers = {
+          "What does this mean?": "It means there are some minor findings in your report that should be discussed with a doctor, but they are not typically considered emergencies.",
+          "Should I be worried?": "The analysis indicates a 'Mild' worry level. While you should follow up with a professional, there is no immediate cause for alarm.",
+          "What next?": "You should schedule a routine appointment with a cardiologist to discuss these findings in detail.",
+        };
+      }
       
       const resp = mockAnswers[q] || `Based on your report, "${q}" is a good question. In a real scenario, the AI would provide a detailed medical explanation here. For this demo, we're showing that the chat interface is working!`;
       
@@ -887,10 +904,16 @@ const ResultsPage = () => {
                 )}
 
                 <div className="flex gap-2 flex-wrap my-3">
-                  {(langName.toLowerCase().includes("hindi") 
-                    ? ["इसका क्या मतलब है?", "क्या मुझे चिंतित होना चाहिए?", "आगे क्या?"]
-                    : ["What does this mean?", "Should I be worried?", "What next?"]
-                  ).map((c) => (
+                  {(() => {
+                    const lowerLang = langName.toLowerCase();
+                    if (lowerLang.includes("hindi")) {
+                      return ["इसका क्या मतलब है?", "क्या मुझे चिंतित होना चाहिए?", "आगे क्या?"];
+                    } else if (lowerLang.includes("tamil")) {
+                      return ["இதன் பொருள் என்ன?", "நான் கவலைப்பட வேண்டுமா?", "அடுத்து என்ன?"];
+                    } else {
+                      return ["What does this mean?", "Should I be worried?", "What next?"];
+                    }
+                  })().map((c) => (
                     <button
                       key={c}
                       onClick={() => setAskInput(c)}

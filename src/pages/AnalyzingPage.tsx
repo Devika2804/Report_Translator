@@ -102,88 +102,140 @@ const AnalyzingPage = () => {
 
       console.log("Using mock analysis data for demo...");
 
-      // ✅ TEMP FIX FOR DEMO WITH HINDI SUPPORT
-      const isHindi = selectedLanguage.toLowerCase().includes("hindi");
+      // ✅ DYNAMIC MOCK SYSTEM FOR DEMO
+      const lowerText = (reportText || "").toLowerCase();
+      const lowerLang = selectedLanguage.toLowerCase();
+      const isHindi = lowerLang.includes("hindi");
+      const isTamil = lowerLang.includes("tamil");
 
-      const mockData = isHindi ? {
-        summary: [
-          "आपका हृदय थोड़ा बड़ा हुआ दिखाई देता है।",
-          "फेफड़ों में तरल पदार्थ के हल्के संकेत हैं।"
-        ],
-        worryLevel: "Mild",
-        findings: [
-          {
-            term: "Cardiomegaly",
-            explanation: "हृदय थोड़ा बड़ा हो गया है"
-          },
-          {
-            term: "Pleural Effusion",
-            explanation: "फेफड़ों में तरल पदार्थ का थोड़ा जमाव"
-          }
-        ],
-        aiExplanation:
-          "आपकी रिपोर्ट हृदय के हल्के विस्तार और तरल पदार्थ के छोटे जमाव को दिखाती है। यह आपात स्थिति नहीं है लेकिन इसकी निगरानी की जानी चाहिए।",
-        whatThisMeans:
-          "ये निष्कर्ष प्रारंभिक परिवर्तनों का सुझाव देते हैं जिनके लिए चिकित्सा अनुवर्ती कार्रवाई की आवश्यकता हो सकती है।",
-        nextSteps: [
-          "हृदय रोग विशेषज्ञ से परामर्श लें",
-          "दोबारा इमेजिंग के साथ अनुवर्ती कार्रवाई करें",
-          "स्वस्थ जीवनशैली बनाए रखें"
-        ],
-        possibleCauses: {
-          agePercent: 40,
-          envPercent: 60,
-          ageRelated: ["प्राकृतिक उम्र बढ़ने की प्रक्रिया"],
-          environmental: ["गतिहीन जीवनशैली"]
-        },
-        worryColor: "yellow",
-        fullReport: {
-          reportType: "रेडियोलॉजी रिपोर्ट",
-          detailedFindings: [],
-          clinicalInterpretation: ["अनुवर्ती कार्रवाई की आवश्यकता वाले हल्के निष्कर्ष।"],
-          avoidList: [],
-          helpList: ["नियमित व्यायाम", "हृदय के लिए स्वस्थ आहार"],
-          doctorQuestions: ["हृदय का विस्तार कितना महत्वपूर्ण है?"]
+      let category: "chest" | "blood" | "brain" | "general" = "general";
+      if (lowerText.includes("chest") || lowerText.includes("x-ray") || lowerText.includes("lung") || lowerText.includes("heart")) category = "chest";
+      else if (lowerText.includes("blood") || lowerText.includes("cbc") || lowerText.includes("hemoglobin") || lowerText.includes("sugar")) category = "blood";
+      else if (lowerText.includes("brain") || lowerText.includes("head") || lowerText.includes("skull") || lowerText.includes("mri")) category = "brain";
+
+      const getMockData = () => {
+        if (category === "chest") {
+          if (isHindi) return {
+            summary: ["आपका हृदय थोड़ा बड़ा हुआ दिखाई देता है।", "फेफड़ों में तरल पदार्थ के हल्के संकेत हैं।"],
+            worryLevel: "Mild",
+            findings: [{ term: "Cardiomegaly", explanation: "हृदय थोड़ा बड़ा हो गया है" }, { term: "Pleural Effusion", explanation: "फेफड़ों में तरल पदार्थ का थोड़ा जमाव" }],
+            aiExplanation: "आपकी रिपोर्ट हृदय के हल्के विस्तार और तरल पदार्थ के छोटे जमाव को दिखाती है। यह आपात स्थिति नहीं है।",
+            whatThisMeans: "चिकित्सा अनुवर्ती कार्रवाई की आवश्यकता हो सकती है।",
+            nextSteps: ["हृदय रोग विशेषज्ञ से परामर्श लें", "स्वस्थ जीवनशैली बनाए रखें"],
+            possibleCauses: { agePercent: 40, envPercent: 60, ageRelated: ["प्राकृतिक उम्र बढ़ने"], environmental: ["गतिहीन जीवनशैली"] },
+            worryColor: "yellow"
+          };
+          if (isTamil) return {
+            summary: ["உங்கள் இதயம் சற்று விரிவடைந்து காணப்படுகிறது.", "நுரையீரலில் லேசான நீர் கோர்ப்பு அறிகுறிகள் உள்ளன."],
+            worryLevel: "Mild",
+            findings: [{ term: "Cardiomegaly", explanation: "இதயம் சற்று பெரிதாகியுள்ளது" }, { term: "Pleural Effusion", explanation: "நுரையீரலில் சிறிய அளவில் நீர் கோர்ப்பு" }],
+            aiExplanation: "உங்கள் அறிக்கை இதயம் மற்றும் நுரையீரலில் லேசான மாற்றங்களைக் காட்டுகிறது. இது அவசரநிலை அல்ல.",
+            whatThisMeans: "மருத்துவ தொடர் நடவடிக்கை தேவைப்படலாம்.",
+            nextSteps: ["இதய நிபுணரை அணுகவும்", "ஆரோக்கியமான வாழ்க்கை முறை"],
+            possibleCauses: { agePercent: 40, envPercent: 60, ageRelated: ["வயது முதிர்வு"], environmental: ["உடல் உழைப்பற்ற வாழ்க்கை"] },
+            worryColor: "yellow"
+          };
+          return {
+            summary: ["Your heart appears slightly enlarged.", "There are mild signs of fluid in the lungs."],
+            worryLevel: "Mild",
+            findings: [{ term: "Cardiomegaly", explanation: "Heart is slightly enlarged" }, { term: "Pleural Effusion", explanation: "Small amount of fluid in lungs" }],
+            aiExplanation: "Your report shows mild enlargement of the heart and small fluid buildup. This is not an emergency.",
+            whatThisMeans: "Medical follow-up may be needed.",
+            nextSteps: ["Consult a cardiologist", "Maintain healthy lifestyle"],
+            possibleCauses: { agePercent: 40, envPercent: 60, ageRelated: ["Natural aging"], environmental: ["Sedentary lifestyle"] },
+            worryColor: "yellow"
+          };
         }
-      } : {
-        summary: [
-          "Your heart appears slightly enlarged.",
-          "There are mild signs of fluid in the lungs."
-        ],
-        worryLevel: "Mild",
-        findings: [
-          {
-            term: "Cardiomegaly",
-            explanation: "Heart is slightly enlarged"
-          },
-          {
-            term: "Pleural Effusion",
-            explanation: "Small amount of fluid in lungs"
-          }
-        ],
-        aiExplanation:
-          "Your report shows mild enlargement of the heart and small fluid buildup. This is not an emergency but should be monitored.",
-        whatThisMeans:
-          "These findings suggest early changes that may need medical follow-up.",
-        nextSteps: [
-          "Consult a cardiologist",
-          "Follow up with repeat imaging",
-          "Maintain healthy lifestyle"
-        ],
-        possibleCauses: {
-          agePercent: 40,
-          envPercent: 60,
-          ageRelated: ["Natural aging process"],
-          environmental: ["Sedentary lifestyle"]
-        },
-        worryColor: "yellow",
+        
+        if (category === "blood") {
+          if (isHindi) return {
+            summary: ["हीमोग्लोबिन का स्तर थोड़ा कम है।", "रक्त शर्करा सामान्य से अधिक है।"],
+            worryLevel: "Moderate",
+            findings: [{ term: "Anemia", explanation: "रक्त में आयरन की कमी" }, { term: "Hyperglycemia", explanation: "रक्त में उच्च शर्करा स्तर" }],
+            aiExplanation: "आपकी रक्त रिपोर्ट में आयरन की कमी और उच्च शर्करा का संकेत मिलता है।",
+            whatThisMeans: "आपको अपने आहार में बदलाव और डॉक्टर की सलाह की आवश्यकता है।",
+            nextSteps: ["आहार विशेषज्ञ से मिलें", "शर्करा के स्तर की निगरानी करें"],
+            possibleCauses: { agePercent: 30, envPercent: 70, ageRelated: ["चयापचय में बदलाव"], environmental: ["आहार और तनाव"] },
+            worryColor: "orange"
+          };
+          if (isTamil) return {
+            summary: ["ஹீமோகுளோபின் அளவு சற்று குறைவாக உள்ளது.", "இரத்த சர்க்கரை அளவு சாதாரணமாக இருப்பதை விட அதிகமாக உள்ளது."],
+            worryLevel: "Moderate",
+            findings: [{ term: "Anemia", explanation: "இரத்தத்தில் இரும்புச்சத்து குறைபாடு" }, { term: "Hyperglycemia", explanation: "இரத்தத்தில் அதிக சர்க்கரை அளவு" }],
+            aiExplanation: "உங்கள் இரத்த அறிக்கையில் இரும்புச்சத்து குறைபாடு மற்றும் அதிக சர்க்கரை இருப்பதைக் காட்டுகிறது.",
+            whatThisMeans: "உணவு முறை மாற்றம் மற்றும் மருத்துவ ஆலோசனை அவசியம்.",
+            nextSteps: ["உணவு நிபுணரை சந்திக்கவும்", "சர்க்கரை அளவை கண்காணிக்கவும்"],
+            possibleCauses: { agePercent: 30, envPercent: 70, ageRelated: ["வளர்சிதை மாற்ற மாற்றங்கள்"], environmental: ["உணவு மற்றும் மன அழுத்தம்"] },
+            worryColor: "orange"
+          };
+          return {
+            summary: ["Hemoglobin level is slightly low.", "Blood sugar is higher than normal."],
+            worryLevel: "Moderate",
+            findings: [{ term: "Anemia", explanation: "Iron deficiency in blood" }, { term: "Hyperglycemia", explanation: "High blood sugar level" }],
+            aiExplanation: "Your blood report suggests iron deficiency and high sugar levels.",
+            whatThisMeans: "You need dietary changes and medical advice.",
+            nextSteps: ["Consult a nutritionist", "Monitor sugar levels"],
+            possibleCauses: { agePercent: 30, envPercent: 70, ageRelated: ["Metabolic changes"], environmental: ["Diet and stress"] },
+            worryColor: "orange"
+          };
+        }
+
+        if (category === "brain") {
+          if (isHindi) return {
+            summary: ["मस्तिष्क के ऊतकों में हल्के सफेद धब्बे दिखाई देते हैं।", "उम्र के अनुसार हल्का संकुचन सामान्य है।"],
+            worryLevel: "Mild",
+            findings: [{ term: "White Matter Changes", explanation: "मस्तिष्क में रक्त प्रवाह में छोटे बदलाव" }, { term: "Atrophy", explanation: "मस्तिष्क का हल्का संकुचन" }],
+            aiExplanation: "मस्तिष्क की एमआरआई रिपोर्ट में उम्र से संबंधित सामान्य बदलाव दिखाई देते हैं।",
+            whatThisMeans: "ये निष्कर्ष अक्सर उम्र बढ़ने के साथ देखे जाते हैं।",
+            nextSteps: ["न्यूरोलॉजिस्ट के साथ नियमित जांच", "मानसिक रूप से सक्रिय रहें"],
+            possibleCauses: { agePercent: 80, envPercent: 20, ageRelated: ["सामान्य उम्र बढ़ना"], environmental: ["रक्तचाप"] },
+            worryColor: "yellow"
+          };
+          if (isTamil) return {
+            summary: ["மூளை திசுக்களில் சிறிய மாற்றங்கள் காணப்படுகின்றன.", "வயது தொடர்பான லேசான சுருக்கம் காணப்படுகிறது."],
+            worryLevel: "Mild",
+            findings: [{ term: "White Matter Changes", explanation: "மூளை இரத்த ஓட்டத்தில் சிறிய மாற்றங்கள்" }, { term: "Atrophy", explanation: "மூளையின் லேசான சுருக்கம்" }],
+            aiExplanation: "மூளை எம்ஆர்ஐ அறிக்கை வயது தொடர்பான பொதுவான மாற்றங்களைக் காட்டுகிறது.",
+            whatThisMeans: "இவை பொதுவாக வயது முதிர்வுடன் தொடர்புடையவை.",
+            nextSteps: ["நரம்பியல் நிபுணருடன் ஆலோசனை", "மூளைக்கு வேலை தரும் பயிற்சிகள்"],
+            possibleCauses: { agePercent: 80, envPercent: 20, ageRelated: ["இயற்கையான வயது முதிர்வு"], environmental: ["இரத்த அழுத்தம்"] },
+            worryColor: "yellow"
+          };
+          return {
+            summary: ["Small spots in brain tissue detected.", "Mild shrinkage consistent with age."],
+            worryLevel: "Mild",
+            findings: [{ term: "White Matter Changes", explanation: "Small changes in brain blood flow" }, { term: "Atrophy", explanation: "Mild brain shrinkage" }],
+            aiExplanation: "The brain MRI suggests normal age-related changes.",
+            whatThisMeans: "These findings are common as we grow older.",
+            nextSteps: ["Consult a neurologist", "Stay mentally active"],
+            possibleCauses: { agePercent: 80, envPercent: 20, ageRelated: ["Normal aging"], environmental: ["Blood pressure"] },
+            worryColor: "yellow"
+          };
+        }
+
+        // General fallback
+        return {
+          summary: ["General health analysis completed.", "No major issues detected."],
+          worryLevel: "Low",
+          findings: [{ term: "Normal Findings", explanation: "Everything looks within expected range" }],
+          aiExplanation: "Your report appears normal for your profile.",
+          whatThisMeans: "Continue your current healthy lifestyle.",
+          nextSteps: ["Regular checkup", "Stay active"],
+          possibleCauses: { agePercent: 50, envPercent: 50, ageRelated: ["Lifestyle"], environmental: ["Genetics"] },
+          worryColor: "green"
+        };
+      };
+
+      const baseData = getMockData();
+      const mockData = {
+        ...baseData,
         fullReport: {
-          reportType: "Radiology Report",
+          reportType: category.toUpperCase() + " REPORT",
           detailedFindings: [],
-          clinicalInterpretation: ["Mild findings requiring follow-up."],
+          clinicalInterpretation: [baseData.aiExplanation],
           avoidList: [],
-          helpList: ["Regular exercise", "Heart-healthy diet"],
-          doctorQuestions: ["How significant is the heart enlargement?"]
+          helpList: [],
+          doctorQuestions: []
         }
       };
 
