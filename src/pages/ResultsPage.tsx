@@ -318,25 +318,28 @@ const ResultsPage = () => {
     setIsThinking(true);
     setAskResponse("");
     setTypedResponse("");
+    
     try {
-      const { data, error } = await supabase.functions.invoke("ask-doubt", {
-        body: {
-          question: q,
-          reportText,
-          summary: analysisResult?.summary,
-          language: langName,
-        },
-      });
-      if (error) throw new Error(await formatSupabaseFunctionError(error, "ask-doubt"));
-      if (data?.error) throw new Error(data.error);
-      const resp = data?.answer || "Sorry, I couldn't get an answer.";
+      console.log("Using mock response for 'ask-doubt'...");
+      
+      // Simulate network delay
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const mockAnswers: Record<string, string> = {
+        "What does this mean?": "It means there are some minor findings in your report that should be discussed with a doctor, but they are not typically considered emergencies.",
+        "Should I be worried?": "The analysis indicates a 'Mild' worry level. While you should follow up with a professional, there is no immediate cause for alarm.",
+        "What next?": "You should schedule a routine appointment with a cardiologist to discuss these findings in detail.",
+      };
+      
+      const resp = mockAnswers[q] || `Based on your report, "${q}" is a good question. In a real scenario, the AI would provide a detailed medical explanation here. For this demo, we're showing that the chat interface is working!`;
+      
       setAskResponse(resp);
       setIsThinking(false);
       animateResponse(resp);
     } catch (e: any) {
-      console.error("ask-doubt error", e);
+      console.error("ask-doubt mock error", e);
       setIsThinking(false);
-      toast.error(e?.message || "Could not get a response. Please try again.");
+      toast.error("Could not get a response. Please try again.");
     }
   };
 
