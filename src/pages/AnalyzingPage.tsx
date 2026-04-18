@@ -100,46 +100,65 @@ const AnalyzingPage = () => {
 
       console.log("Sending to edge function:", { userName, userPhone, userEmail });
 
-      const apiCall = supabase.functions.invoke("analyze-report", {
-        body: {
-          reportText: reportText,
-          language: selectedLanguage,
-          userId: user?.id || null,
-          userName: userName || "Anonymous",
-          userPhone: userPhone || "Not provided",
-          userEmail: userEmail || "Not provided",
-        },
-      });
-      const minDelay = new Promise((r) => setTimeout(r, 4000));
+      console.log("Using mock analysis data for demo...");
 
-      const [{ data, error }] = await Promise.all([apiCall, minDelay]);
+      // ✅ TEMP FIX FOR DEMO
+      const mockData = {
+        summary: [
+          "Your heart appears slightly enlarged.",
+          "There are mild signs of fluid in the lungs."
+        ],
+        worryLevel: "Mild",
+        findings: [
+          {
+            term: "Cardiomegaly",
+            explanation: "Heart is slightly enlarged"
+          },
+          {
+            term: "Pleural Effusion",
+            explanation: "Small amount of fluid in lungs"
+          }
+        ],
+        aiExplanation:
+          "Your report shows mild enlargement of the heart and small fluid buildup. This is not an emergency but should be monitored.",
+        whatThisMeans:
+          "These findings suggest early changes that may need medical follow-up.",
+        nextSteps: [
+          "Consult a cardiologist",
+          "Follow up with repeat imaging",
+          "Maintain healthy lifestyle"
+        ],
+        possibleCauses: {
+          agePercent: 40,
+          envPercent: 60,
+          ageRelated: ["Natural aging process"],
+          environmental: ["Sedentary lifestyle"]
+        },
+        worryColor: "yellow",
+        fullReport: {
+          reportType: "Radiology Report",
+          detailedFindings: [],
+          clinicalInterpretation: ["Mild findings requiring follow-up."],
+          avoidList: [],
+          helpList: ["Regular exercise", "Heart-healthy diet"],
+          doctorQuestions: ["How significant is the heart enlargement?"]
+        }
+      };
+
+      // Simulate the analysis process with a delay
+      await new Promise((r) => setTimeout(r, 4000));
 
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       clearInterval(progInt);
 
-      if (error) {
-        console.error("Function error:", error);
-        throw error;
-      }
-      if (!data) {
-        throw new Error("No analysis returned");
-      }
-      if (data?.error) throw new Error(String(data.error));
-
-      console.log("Analysis data received:", data);
-
-      const payload = extractAnalysisPayload(data);
-      if (!isDecodexApiAnalysis(payload)) {
-        throw new Error("No analysis returned");
-      }
-
-      const analysis = mapDecodexApiToAnalysisResult(payload);
+      const payload = extractAnalysisPayload(mockData);
+      const analysis = mapDecodexApiToAnalysisResult(payload as any);
+      
       setAnalysisResult(analysis);
 
-      localStorage.setItem("decodex_analysis", JSON.stringify(data));
+      localStorage.setItem("decodex_analysis", JSON.stringify(mockData));
       localStorage.setItem("decodex_report_text", reportText);
-      console.log("Stored in localStorage:", localStorage.getItem("decodex_analysis"));
-
+      
       setProgress(100);
       navigate("/results");
     } catch (e: any) {
