@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
 import { languages } from "@/lib/sampleData";
+import { languageCodeMap } from "@/lib/languageCodeMap";
 import { useReportStore } from "@/store/reportStore";
 
 const LanguagePage = () => {
@@ -108,9 +109,10 @@ const LanguagePage = () => {
             <Button
               disabled={!selected}
               onClick={() => {
-                const chosen = languages.find((l) => l.name === selected);
                 const name = selected;
-                const code = chosen?.code || "en-US";
+                const code = languageCodeMap[name] || "en-US";
+                localStorage.setItem("decodex_language", name);
+                localStorage.setItem("decodex_language_code", code);
                 sessionStorage.setItem("decodex-lang", name);
                 sessionStorage.setItem("decodex-lang-code", code);
                 useReportStore.getState().setLanguage(name, code);

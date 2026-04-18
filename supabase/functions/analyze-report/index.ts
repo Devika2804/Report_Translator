@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { reportText, language, userId } = await req.json()
+    const { reportText, language, userId, userName, userPhone, userEmail } = await req.json()
 
     if (!reportText || reportText.trim().length < 10) {
       return new Response(
@@ -21,148 +21,187 @@ serve(async (req) => {
       )
     }
 
-    const lower = reportText.toLowerCase()
-
-    // Detect worry level
-    let worryLevel = 'Low'
-    let worryColor = 'green'
-    if (lower.includes('malignant') || lower.includes('cancer') || lower.includes('critical') || lower.includes('severe') || lower.includes('urgent')) {
-      worryLevel = 'High'; worryColor = 'red'
-    } else if (lower.includes('moderate') || lower.includes('effusion') || lower.includes('consolidation') || lower.includes('fibrosis')) {
-      worryLevel = 'Moderate'; worryColor = 'orange'
-    } else if (lower.includes('mild') || lower.includes('early') || lower.includes('minimal') || lower.includes('cardiomegaly') || lower.includes('haziness') || lower.includes('pleural')) {
-      worryLevel = 'Mild'; worryColor = 'yellow'
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY is not set')
     }
 
-    // Detect report type
-    let reportType = 'General Medical Report'
-    if (lower.includes('chest') || lower.includes('lung') || lower.includes('cardiac')) reportType = 'Chest X-Ray — PA View'
-    else if (lower.includes('mri') || lower.includes('brain') || lower.includes('spine')) reportType = 'MRI Scan Report'
-    else if (lower.includes('cbc') || lower.includes('hemoglobin') || lower.includes('platelets') || lower.includes('wbc')) reportType = 'Blood Test — CBC'
-    else if (lower.includes('usg') || lower.includes('ultrasound') || lower.includes('abdomen')) reportType = 'Ultrasound Report'
+    const targetLanguage = language || 'English'
 
-    // Extract findings
-    const termMap: Record<string, { explanation: string; severity: string }> = {
-      'cardiomegaly': { explanation: 'Your heart appears slightly larger than its normal size. This is common and manageable.', severity: 'mild' },
-      'pleural effusion': { explanation: 'A small amount of fluid has collected around your lungs.', severity: 'moderate' },
-      'haziness': { explanation: 'A mild cloudiness in parts of your lungs, possibly early fluid or inflammation.', severity: 'mild' },
-      'pulmonary congestion': { explanation: 'Early signs of fluid near the lungs.', severity: 'mild' },
-      'consolidation': { explanation: 'An area of the lung appears solid, often due to infection or fluid.', severity: 'moderate' },
-      'pneumothorax': { explanation: 'Air in the space around the lung. Needs prompt medical attention.', severity: 'severe' },
-      'atelectasis': { explanation: 'A small area of the lung has partially collapsed.', severity: 'mild' },
-      'calcification': { explanation: 'Calcium deposits — usually harmless old scars.', severity: 'normal' },
-      'fibrosis': { explanation: 'Scar tissue in the lungs from past illness or exposure.', severity: 'moderate' },
-      'opacity': { explanation: 'A white/gray area on the scan that needs evaluation.', severity: 'mild' },
-      'intact': { explanation: 'This structure appears completely normal and healthy.', severity: 'normal' },
-      'enlarged': { explanation: 'This organ appears slightly bigger than expected.', severity: 'mild' },
+    const systemPrompt = `You are an expert radiologist and medical report analyzer named Decodex.
+
+YOUR PRIMARY RULE: Read the report EXTREMELY carefully. Extract EVERY abnormal finding mentioned.
+NEVER say findings are normal if the report mentions abnormalities.
+
+This report contains medical findings. Your job is:
+1. Read every single line of the report
+2. Extract ALL pathological findings (abnormalities, diseases, lesions, opacities, etc.)
+3. Explain each finding in simple patient-friendly language
+4. Assign correct severity based on the actual findings
+5. Give accurate worry level — if report has consolidation, effusion, infarcts, or serious findings → worryLevel must be "Moderate" or "High"
+
+SEVERITY GUIDE:
+- "normal": structure/organ explicitly stated as normal in report
+- "mild": minor findings, early changes, age-related changes
+- "moderate": significant findings needing medical attention (effusion, consolidation, infarcts, ischemic changes)
+- "severe": emergency findings (hemorrhage, large vessel occlusion, malignancy, tension pneumothorax)
+
+WORRY LEVEL GUIDE:
+- "Low" (green): truly normal report, no abnormalities
+- "Mild" (yellow): minor findings, routine follow-up needed
+- "Moderate" (orange): significant findings, doctor visit needed soon
+- "High" (red): serious findings, urgent medical attention needed
+
+LANGUAGE: Respond in ${targetLanguage}. ALL text fields must be in ${targetLanguage}.
+
+CRITICAL: Return ONLY valid JSON. No markdown. No text before or after the JSON.`
+
+    const userPrompt = `IMPORTANT: This report has REAL medical findings. Read carefully and extract ALL of them.
+
+DO NOT say the report is normal if it mentions any of these or similar:
+- opacity, consolidation, effusion, infarct, ischemia, hemorrhage, lesion, mass, calcification,
+  stenosis, occlusion, atrophy, cardiomegaly, haziness, blunting, pleural changes, vascular changes
+
+MEDICAL REPORT TO ANALYZE:
+===START OF REPORT===
+${reportText}
+===END OF REPORT===
+
+Extract every single finding from above and return this JSON in ${targetLanguage}:
+
+{
+  "summary": [
+    "State what TYPE of report this is (X-ray/MRI/CT/Blood test etc)",
+    "State the MOST SERIOUS finding from the report in simple words",
+    "State the SECOND most important finding",
+    "State what the overall impression/conclusion says",
+    "State what follow-up is recommended"
+  ],
+  "aiExplanation": "Write 3 paragraphs. Para 1: Explain what was found in this report in simple words. Para 2: What do these findings mean for the patient's health. Para 3: What the patient should do next. Be accurate, warm, and clear. Use simple non-medical language.",
+  "findings": [
+    {
+      "term": "Copy exact medical term from report",
+      "explanation": "Explain what this specific finding means in simple words a patient can understand",
+      "severity": "normal OR mild OR moderate OR severe based on actual clinical significance"
     }
-
-    const findings = []
-    for (const [term, data] of Object.entries(termMap)) {
-      if (lower.includes(term)) {
-        findings.push({
-          term: term.charAt(0).toUpperCase() + term.slice(1),
-          explanation: data.explanation,
-          severity: data.severity,
-        })
+  ],
+  "whatThisMeans": "Explain in 2-3 sentences what these findings mean for the patient's daily life, health, and what they should prioritize.",
+  "worryLevel": "Choose based on actual findings: Low/Mild/Moderate/High",
+  "worryColor": "green for Low, yellow for Mild, orange for Moderate, red for High",
+  "possibleCauses": {
+    "ageRelated": [
+      "Age-related cause specifically relevant to findings in THIS report",
+      "Second age-related cause",
+      "Third age-related cause",
+      "Fourth age-related cause"
+    ],
+    "environmental": [
+      "Environmental/lifestyle cause specifically relevant to findings in THIS report",
+      "Second environmental cause",
+      "Third cause",
+      "Fourth cause"
+    ],
+    "agePercent": 55,
+    "envPercent": 45
+  },
+  "nextSteps": [
+    "Most urgent action based on THIS report's specific findings",
+    "Second specific action",
+    "Third specific action",
+    "Fourth specific action",
+    "Fifth specific action"
+  ],
+  "fullReport": {
+    "reportType": "Exact report type detected from the report",
+    "detailedFindings": [
+      {
+        "finding": "Short name of finding",
+        "term": "Exact medical term from report",
+        "severity": "Normal OR Mild OR Moderate OR Severe",
+        "explanation": "Detailed plain language explanation of this specific finding",
+        "action": "Specific action patient should take for this finding"
       }
-    }
-    if (findings.length === 0) {
-      findings.push({ term: 'Report Analyzed', explanation: 'Your report has been read and simplified.', severity: 'normal' })
-    }
-    const topFindings = findings.slice(0, 5)
+    ],
+    "clinicalInterpretation": [
+      "Overall clinical picture paragraph in plain language",
+      "What this means for the patient's daily life",
+      "Specific warning signs the patient should watch for based on these findings"
+    ],
+    "avoidList": [
+      "Specific thing to avoid based on actual findings in this report",
+      "Second specific avoidance",
+      "Third avoidance",
+      "Fourth avoidance"
+    ],
+    "helpList": [
+      "Specific helpful action based on actual findings",
+      "Second helpful action",
+      "Third helpful action",
+      "Fourth helpful action"
+    ],
+    "doctorQuestions": [
+      "Specific question about the most serious finding in this report",
+      "Question about treatment options for these findings",
+      "Question about follow-up tests mentioned in the report",
+      "Question about lifestyle changes needed",
+      "Question about prognosis"
+    ]
+  }
+}
 
-    const explanationMap: Record<string, string> = {
-      Low: 'Your report looks reassuring overall. No signs of anything serious. Keep up your healthy habits.',
-      Mild: 'There are some mild findings worth discussing with your doctor. Not an emergency — manageable with routine monitoring.',
-      Moderate: 'Your report shows findings that need attention soon. Your doctor will want to see you to discuss next steps.',
-      High: 'Your report contains findings that need prompt medical attention. Please contact your doctor immediately.',
-    }
+REMINDER: ALL text must be in ${targetLanguage} language. Return ONLY the JSON object.`
 
-    const result = {
-      summary: [
-        `Your ${reportType} has been analyzed and simplified by Decodex AI.`,
-        topFindings.filter(f => f.severity !== 'normal').length > 0
-          ? `${topFindings.filter(f => f.severity !== 'normal').length} finding(s) were identified that your doctor should review.`
-          : 'All findings appear to be within normal or near-normal range.',
-        worryLevel === 'Low' ? 'No urgent action is needed at this time.' : 'A follow-up appointment with your doctor is recommended.',
-        'Structural elements mentioned in the report appear intact.',
-        'This simplified report is ready to share with your doctor.',
-      ],
-      aiExplanation: explanationMap[worryLevel] + ' Remember: this AI analysis is a helpful guide, but your doctor makes the final call.',
-      findings: topFindings,
-      whatThisMeans: worryLevel === 'Low'
-        ? 'Your body is doing well overall. Things appear healthy.'
-        : worryLevel === 'Mild'
-        ? 'A few small things to keep an eye on. Think of this as an early heads-up.'
-        : worryLevel === 'Moderate'
-        ? 'Some areas need medical attention. Your doctor will guide you on next steps.'
-        : 'Some findings need to be addressed promptly. Contact your healthcare provider.',
-      worryLevel,
-      worryColor,
-      possibleCauses: {
-        ageRelated: [
-          'Natural changes in organ size and function that occur with age',
-          'Reduced elasticity of blood vessels and lung tissue over time',
-          'Gradual changes in heart muscle efficiency after age 40',
-          'Bone density changes visible on imaging studies',
-        ],
-        environmental: [
-          'Long-term exposure to air pollution or dust at work or home',
-          'Smoking history affecting lung and heart appearance',
-          'High-salt or high-fat diet contributing to cardiovascular strain',
-          'Sedentary lifestyle reducing cardiovascular efficiency',
-        ],
-        agePercent: 60,
-        envPercent: 40,
+    // Call Groq API (free, fast)
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
       },
-      nextSteps: [
-        'Share this simplified report with your primary care doctor.',
-        worryLevel === 'High' ? 'Contact your doctor TODAY — do not wait.' : 'Schedule a follow-up within 2–4 weeks.',
-        'Bring a printed copy of this Decodex report to your consultation.',
-        'Ask your doctor specifically about each finding highlighted above.',
-        'Monitor for new or worsening symptoms and report them immediately.',
-      ],
-      fullReport: {
-        reportType,
-        detailedFindings: topFindings.map(f => ({
-          finding: f.term,
-          term: f.term,
-          severity: f.severity.charAt(0).toUpperCase() + f.severity.slice(1),
-          explanation: f.explanation,
-          action: f.severity === 'normal' ? 'No action required'
-            : f.severity === 'mild' ? 'Monitor at next appointment'
-            : f.severity === 'moderate' ? 'Discuss with doctor soon'
-            : 'Seek prompt medical care',
-        })),
-        clinicalInterpretation: [
-          `The overall assessment reveals ${topFindings.length} notable finding(s) with a ${worryLevel.toLowerCase()} priority level.`,
-          `The patient should ${worryLevel === 'Low' ? 'continue normal routine' : 'limit strenuous activity until reviewed by a doctor'}.`,
-          'Watch for sudden chest pain, difficulty breathing, or severe dizziness and seek immediate care.',
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        avoidList: [
-          'High-sodium foods (processed snacks, canned soups, fast food)',
-          'Excessive physical exertion until cleared by your doctor',
-          'Smoking and secondhand smoke exposure',
-          'Alcohol in excess',
-        ],
-        helpList: [
-          'Heart-healthy foods: leafy greens, berries, whole grains',
-          'Light walking (20–30 minutes daily) if approved by doctor',
-          'Adequate sleep (7–8 hours per night)',
-          'Stress management: deep breathing, meditation',
-        ],
-        doctorQuestions: [
-          `"What is causing the ${topFindings[0]?.term || 'main finding'} in my report?"`,
-          '"Do I need additional tests such as an echocardiogram or blood panel?"',
-          '"Should I change any current medications based on these results?"',
-          '"What symptoms should make me come back immediately?"',
-          '"How often should I get follow-up imaging or tests?"',
-        ],
-      },
+        temperature: 0.1,
+        max_tokens: 6000,
+        response_format: { type: 'json_object' }
+      }),
+    })
+
+    if (!groqResponse.ok) {
+      const errText = await groqResponse.text()
+      console.error('Groq API error:', errText)
+      throw new Error(`Groq API failed: ${groqResponse.status}`)
     }
 
-    // ✅ SAVE TO SUPABASE DATABASE
+    const groqData = await groqResponse.json()
+    const rawContent = groqData.choices?.[0]?.message?.content
+
+    if (!rawContent) {
+      throw new Error('No response from Groq AI')
+    }
+
+    // Parse the JSON response
+    let result
+    try {
+      const cleaned = rawContent
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim()
+      result = JSON.parse(cleaned)
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError, 'Raw:', rawContent)
+      throw new Error('AI returned invalid JSON format')
+    }
+
+    // Validate required fields exist
+    if (!result.summary || !result.findings || !result.worryLevel) {
+      throw new Error('AI response missing required fields')
+    }
+
+    // Save to Supabase database
     const SUPABASE_URL = Deno.env.get('APP_SUPABASE_URL')
     const SUPABASE_SERVICE_KEY = Deno.env.get('APP_SERVICE_ROLE_KEY')
 
@@ -179,18 +218,20 @@ serve(async (req) => {
           body: JSON.stringify({
             user_id: userId || null,
             report_text: reportText.substring(0, 500),
-            worry_level: worryLevel,
-            language: language || 'English',
-            summary: result.summary.join(' | '),
+            worry_level: result.worryLevel || 'Unknown',
+            language: targetLanguage,
+            summary: Array.isArray(result.summary) 
+              ? result.summary.join(' | ') 
+              : String(result.summary),
+            name: userName || 'Anonymous',
+            phone: userPhone || 'Not provided',
             created_at: new Date().toISOString(),
           }),
         })
-        console.log('✅ Report saved to database')
+        console.log('Saved to DB successfully')
       } catch (dbError) {
         console.error('DB save error (non-fatal):', dbError)
       }
-    } else {
-      console.log('⚠️ DB secrets not set — skipping save')
     }
 
     return new Response(
@@ -200,8 +241,12 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Edge function error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return new Response(
-      JSON.stringify({ error: 'Analysis failed. Please try again.', details: error.message }),
+      JSON.stringify({ 
+        error: 'Analysis failed. Please try again.', 
+        details: msg 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/PageTransition";
 import { supabase } from "@/integrations/supabase/client";
-import { formatSupabaseFunctionError } from "@/lib/formatSupabaseFunctionError";
 import { useReportStore } from "@/store/reportStore";
+import { syncLanguageFromSessionStorage } from "@/lib/hydrateLanguageFromSession";
 import {
   extractAnalysisPayload,
   isDecodexApiAnalysis,
@@ -30,7 +30,7 @@ const stepDefs = [
 
 const AnalyzingPage = () => {
   const navigate = useNavigate();
-  const { reportText, language, setAnalysisResult, setAnalysisError } = useReportStore();
+  const { reportText, setAnalysisResult, setAnalysisError } = useReportStore();
   const [step, setStep] = useState(0);
   const [msgIdx, setMsgIdx] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -56,15 +56,58 @@ const AnalyzingPage = () => {
         throw new Error("No report text found. Please go back and enter your report.");
       }
 
+      syncLanguageFromSessionStorage();
+      const selectedLanguage =
+        localStorage.getItem("decodex_language") ||
+        useReportStore.getState().language ||
+        "English";
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
+      let userName = localStorage.getItem("user_name") || "";
+      let userPhone = localStorage.getItem("user_phone") || "";
+      let userEmail = localStorage.getItem("user_email") || "";
+
+      if (!userName && user?.user_metadata) {
+        userName =
+          user.user_metadata.full_name ||
+          user.user_metadata.name ||
+          user.user_metadata.display_name ||
+          "";
+      }
+      if (!userPhone && user?.user_metadata) {
+        userPhone = user.user_metadata.phone || "";
+      }
+      if (!userEmail) {
+        userEmail = user?.email || "";
+      }
+
+      if (!userName || !userPhone) {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("name, phone, email")
+          .eq("id", user?.id)
+          .maybeSingle();
+
+        if (profile) {
+          userName = userName || profile.name || "";
+          userPhone = userPhone || profile.phone || "";
+          userEmail = userEmail || profile.email || "";
+        }
+      }
+
+      console.log("Sending to edge function:", { userName, userPhone, userEmail });
+
       const apiCall = supabase.functions.invoke("analyze-report", {
         body: {
-          reportText,
-          language: language || "English",
-          userId: user?.id ?? null,
+          reportText: reportText,
+          language: selectedLanguage,
+          userId: user?.id || null,
+          userName: userName || "Anonymous",
+          userPhone: userPhone || "Not provided",
+          userEmail: userEmail || "Not provided",
         },
       });
       const minDelay = new Promise((r) => setTimeout(r, 4000));
@@ -76,15 +119,14 @@ const AnalyzingPage = () => {
 
       if (error) {
         console.error("Function error:", error);
-        throw new Error(await formatSupabaseFunctionError(error, "analyze-report"));
+        throw error;
+      }
+      if (!data) {
+        throw new Error("No analysis returned");
       }
       if (data?.error) throw new Error(String(data.error));
 
       console.log("Analysis data received:", data);
-
-      if (!data) {
-        throw new Error("No analysis returned");
-      }
 
       const payload = extractAnalysisPayload(data);
       if (!isDecodexApiAnalysis(payload)) {

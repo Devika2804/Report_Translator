@@ -12,6 +12,23 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Logo } from "@/components/Logo";
 import { PageTransition } from "@/components/PageTransition";
 import { AnimatedDarkBackground } from "@/components/AnimatedDarkBackground";
+import { supabase } from "@/integrations/supabase/client";
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && err !== null) {
+    const o = err as Record<string, unknown>;
+    if (typeof o.message === "string" && o.message) return o.message;
+    if (typeof o.error_description === "string" && o.error_description) return o.error_description;
+    if (typeof o.msg === "string" && o.msg) return o.msg;
+    const details = typeof o.details === "string" ? o.details : "";
+    const hint = typeof o.hint === "string" ? o.hint : "";
+    if (details && hint) return `${details} (${hint})`;
+    if (details) return details;
+    if (hint) return hint;
+  }
+  return "Something went wrong";
+}
 
 const COUNTRIES = [
   { code: "IN", flag: "🇮🇳", dial: "+91", name: "India" },
@@ -25,7 +42,10 @@ const AuthPage = () => {
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [pwd, setPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneErr, setPhoneErr] = useState<string | null>(null);
   const [country, setCountry] = useState(COUNTRIES[0]);
@@ -45,7 +65,7 @@ const AuthPage = () => {
     return null;
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (tab === "signup") {
       const err = validatePhone(phone);
@@ -53,13 +73,111 @@ const AuthPage = () => {
         setPhoneErr(err);
         return;
       }
+      if (pwd !== confirmPwd) {
+        toast.error("Passwords do not match");
+        return;
+      }
     }
     setPhoneErr(null);
     setLoading(true);
-    setTimeout(() => {
-      toast.success(tab === "signin" ? "Welcome back!" : "Account created!");
+    const password = pwd;
+    const phoneDigits = phone.replace(/\D/g, "");
+    const fullPhone = tab === "signup" ? `${country.dial}${phoneDigits}` : "";
+
+    try {
+      if (tab === "signup") {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: email,
+          password: password,
+          options: {
+            data: {
+              full_name: fullName,
+              phone: fullPhone,
+              display_name: fullName,
+            },
+          },
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (signUpData?.user) {
+          localStorage.setItem("user_name", fullName);
+          localStorage.setItem("user_phone", fullPhone);
+          localStorage.setItem("user_email", email);
+
+          // RLS requires a session (auth.uid()). If email confirmation is on, session is often null — skip client upsert; DB trigger fills public.users.
+          if (signUpData.session) {
+            const { error: profileError } = await supabase.from("users").upsert(
+              {
+                id: signUpData.user.id,
+                email: email,
+                name: fullName,
+                phone: fullPhone,
+                created_at: new Date().toISOString(),
+              },
+              { onConflict: "id" }
+            );
+            if (profileError) throw profileError;
+          }
+        }
+
+        toast.success(
+          signUpData?.session
+            ? "Account created!"
+            : "Check your email to confirm your account. After confirming, sign in to continue."
+        );
+      } else {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password,
+        });
+
+        if (signInError) throw signInError;
+
+        const { data: userProfile } = await supabase
+          .from("users")
+          .select("name, phone, email")
+          .eq("id", signInData.user.id)
+          .maybeSingle();
+
+        if (userProfile) {
+          localStorage.setItem("user_name", userProfile.name || "");
+          localStorage.setItem("user_phone", userProfile.phone || "");
+          localStorage.setItem("user_email", userProfile.email || email);
+        } else {
+          const meta = signInData.user.user_metadata;
+          const nameFromMeta =
+            (meta?.full_name as string | undefined) ||
+            (meta?.display_name as string | undefined) ||
+            (meta?.name as string | undefined) ||
+            "";
+          const phoneFromMeta = (meta?.phone as string | undefined) || "";
+          localStorage.setItem("user_name", nameFromMeta);
+          localStorage.setItem("user_phone", phoneFromMeta);
+          localStorage.setItem("user_email", signInData.user.email || email);
+
+          const { error: backfillError } = await supabase.from("users").upsert(
+            {
+              id: signInData.user.id,
+              email: signInData.user.email ?? email,
+              name: nameFromMeta,
+              phone: phoneFromMeta,
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: "id" }
+          );
+          if (backfillError) console.error("users profile backfill:", backfillError);
+        }
+
+        toast.success("Welcome back!");
+      }
+
       navigate("/language");
-    }, 1500);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -177,6 +295,8 @@ const AuthPage = () => {
                         <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                         <Input
                           placeholder="Full name"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
                           className="pl-10 h-12 rounded-xl bg-white text-slate-900 border-slate-300 placeholder:text-slate-400 focus-visible:ring-blue-500"
                           required
                         />
@@ -255,6 +375,8 @@ const AuthPage = () => {
                       <Input
                         type="email"
                         placeholder="Email address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="pl-10 h-12 rounded-xl bg-white text-slate-900 border-slate-300 placeholder:text-slate-400 focus-visible:ring-blue-500"
                         required
                       />
@@ -302,6 +424,8 @@ const AuthPage = () => {
                         <Input
                           type="password"
                           placeholder="Confirm password"
+                          value={confirmPwd}
+                          onChange={(e) => setConfirmPwd(e.target.value)}
                           className="pl-10 h-12 rounded-xl bg-white text-slate-900 border-slate-300 placeholder:text-slate-400 focus-visible:ring-blue-500"
                           required
                         />

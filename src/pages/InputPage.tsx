@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, Upload, Mic, Camera, Sparkles, Lock, ShieldCheck, ArrowRight,
-  CloudUpload, X, Scan, Loader2, Check, Square, AlertCircle,
+  CloudUpload, X, Scan, Loader2, Check, Square, AlertCircle, CheckCircle,
 } from "lucide-react";
+import { createWorker } from "tesseract.js";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 // Input component no longer needed (WhatsApp section removed)
@@ -14,6 +15,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { sampleReport } from "@/lib/sampleData";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useReportStore } from "@/store/reportStore";
+import { syncLanguageFromSessionStorage } from "@/lib/hydrateLanguageFromSession";
 
 type Tab = "paste" | "upload" | "voice" | "scan";
 
@@ -26,18 +28,91 @@ const tabs: { id: Tab; icon: any; label: string }[] = [
 
 const InputPage = () => {
   const navigate = useNavigate();
-  const { reportText: storedText } = useReportStore();
+  const { reportText: storedText, setReportText } = useReportStore();
+
+  useEffect(() => {
+    syncLanguageFromSessionStorage();
+  }, []);
   const [tab, setTab] = useState<Tab>("paste");
   // Start empty — user can click "Try Sample Report" below textarea.
   const [text, setText] = useState(storedText || "");
   const [file, setFile] = useState<File | null>(null);
   const [voiceText, setVoiceText] = useState("");
   const [scanText, setScanText] = useState("");
+  const [ocrStatus, setOcrStatus] = useState<"idle" | "extracting" | "success" | "error">("idle");
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrError, setOcrError] = useState("");
+  const [extractedText, setExtractedText] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const photoOcrRef = useRef<HTMLInputElement>(null);
 
-  const lang = (typeof window !== "undefined" && sessionStorage.getItem("decodex-lang-code")) || "en-US";
+  const handlePhotoUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/bmp"];
+    if (!validTypes.includes(file.type)) {
+      setOcrError("Please upload a JPG, PNG, or WebP image file.");
+      setOcrStatus("error");
+      return;
+    }
+
+    setOcrStatus("extracting");
+    setOcrError("");
+    setExtractedText("");
+    setOcrProgress(0);
+
+    let imageUrl = "";
+    try {
+      imageUrl = URL.createObjectURL(file);
+
+      const worker = await createWorker("eng", 1, {
+        logger: (m: { status?: string; progress?: number }) => {
+          if (m.status === "recognizing text" && typeof m.progress === "number") {
+            setOcrProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
+
+      const {
+        data: { text },
+      } = await worker.recognize(imageUrl);
+      await worker.terminate();
+
+      const cleanedText = text
+        .replace(/\f/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+
+      if (cleanedText.length < 10) {
+        setOcrError(
+          "Could not extract text from this image. Please try a clearer image or use the Paste Text tab."
+        );
+        setOcrStatus("error");
+        return;
+      }
+
+      setExtractedText(cleanedText);
+      setScanText(cleanedText);
+      setReportText(cleanedText, false);
+      setOcrStatus("success");
+      setOcrProgress(100);
+    } catch (error) {
+      console.error("OCR error:", error);
+      setOcrError("Failed to read image. Please try a clearer photo or paste the text manually.");
+      setOcrStatus("error");
+    } finally {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    }
+  }, [setReportText]);
+
+  const lang =
+    (typeof window !== "undefined" &&
+      (localStorage.getItem("decodex_language_code") || sessionStorage.getItem("decodex-lang-code"))) ||
+    "en-US";
   const speech = useSpeechRecognition({ lang, interimResults: true });
 
   // Sync live transcript into voice textarea while listening
@@ -117,6 +192,10 @@ const InputPage = () => {
                   setFile(null);
                   setVoiceText("");
                   setScanText("");
+                  setOcrStatus("idle");
+                  setOcrProgress(0);
+                  setOcrError("");
+                  setExtractedText("");
                   speech.reset();
                   useReportStore.getState().setReportText("", false);
                 }}
@@ -336,17 +415,98 @@ const InputPage = () => {
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <Button onClick={() => setScanText(sampleReport)} className="flex-1 bg-gradient-primary hover:opacity-90 rounded-xl h-12">
+                    <Button
+                      onClick={() => {
+                        setScanText(sampleReport);
+                        setReportText(sampleReport, false);
+                        setOcrStatus("idle");
+                        setExtractedText("");
+                        setOcrError("");
+                      }}
+                      className="flex-1 bg-gradient-primary hover:opacity-90 rounded-xl h-12"
+                    >
                       <Camera className="w-4 h-4 mr-2" /> Open Camera
                     </Button>
-                    <Button variant="outline" onClick={() => setScanText(sampleReport)} className="flex-1 rounded-xl h-12">
-                      <Upload className="w-4 h-4 mr-2" /> Upload Photo
-                    </Button>
+                    <div className="flex-1 space-y-0">
+                      <input
+                        ref={photoOcrRef}
+                        type="file"
+                        id="photo-upload"
+                        accept="image/jpeg,image/png,image/jpg,image/webp,image/bmp"
+                        className="sr-only"
+                        onChange={handlePhotoUpload}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => photoOcrRef.current?.click()}
+                        disabled={ocrStatus === "extracting"}
+                        className="w-full rounded-xl h-12 border-2"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {ocrStatus === "extracting" ? "Extracting text..." : "Upload Photo"}
+                      </Button>
+                    </div>
                   </div>
-                  {scanText && (
+
+                  {ocrStatus === "extracting" && (
+                    <div className="mt-4">
+                      <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                        <span>Reading image...</span>
+                        <span>{ocrProgress}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-primary h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${ocrProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {ocrStatus === "success" && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
+                      <div className="flex items-center gap-2 text-success mb-2 text-sm font-medium">
+                        <CheckCircle className="w-4 h-4 shrink-0" />
+                        <span>Text extracted successfully</span>
+                      </div>
+                      <Textarea
+                        value={extractedText}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setExtractedText(v);
+                          setScanText(v);
+                          setReportText(v, false);
+                        }}
+                        className="min-h-[128px] rounded-xl text-sm resize-y"
+                        placeholder="Extracted text appears here. You can edit if needed."
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        You can edit the extracted text above before analyzing.
+                      </p>
+                    </motion.div>
+                  )}
+
+                  {ocrStatus === "error" && (
+                    <div className="mt-4 p-3 rounded-xl border border-destructive/30 bg-destructive/10">
+                      <p className="text-destructive text-sm">{ocrError}</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOcrStatus("idle");
+                          setOcrError("");
+                        }}
+                        className="text-primary text-sm mt-2 underline underline-offset-2"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  )}
+
+                  {scanText && ocrStatus !== "success" && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
                       <div className="flex items-center gap-2 text-sm text-success mb-2 font-medium">
-                        <Check className="w-4 h-4" /> Text extracted
+                        <Check className="w-4 h-4" /> Text ready
                       </div>
                       <Textarea value={scanText} onChange={(e) => setScanText(e.target.value)} className="min-h-[120px] rounded-xl" />
                     </motion.div>

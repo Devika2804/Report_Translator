@@ -31,6 +31,7 @@ export const languages = [
   { flag: "🇮🇳", name: "Telugu", native: "తెలుగు", code: "te-IN" },
   { flag: "🇮🇳", name: "Kannada", native: "ಕನ್ನಡ", code: "kn-IN" },
   { flag: "🇮🇳", name: "Marathi", native: "मराठी", code: "mr-IN" },
+  { flag: "🇮🇳", name: "Malayalam", native: "മലയാളം", code: "ml-IN" },
   { flag: "🇪🇸", name: "Spanish", native: "Español", code: "es-ES" },
   { flag: "🇫🇷", name: "French", native: "Français", code: "fr-FR" },
   { flag: "🇸🇦", name: "Arabic", native: "العربية", code: "ar-SA" },

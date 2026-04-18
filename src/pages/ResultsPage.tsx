@@ -17,6 +17,7 @@ import { recentReports } from "@/lib/sampleData";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { generateReportPDF } from "@/lib/generatePDF";
 import { useReportStore } from "@/store/reportStore";
+import { syncLanguageFromSessionStorage } from "@/lib/hydrateLanguageFromSession";
 import {
   extractAnalysisPayload,
   isDecodexApiAnalysis,
@@ -79,6 +80,7 @@ const ResultsPage = () => {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    syncLanguageFromSessionStorage();
     const stored = localStorage.getItem("decodex_analysis");
     if (stored) {
       try {
@@ -156,10 +158,8 @@ const ResultsPage = () => {
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
-    // Force voices to load (Chrome populates async)
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
     }
     return () => {
       if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -169,29 +169,96 @@ const ResultsPage = () => {
     };
   }, []);
 
-  const speakText = (text: string, onEnd?: () => void) => {
+  /** Windows/Chrome often tag Hindi as hi-IN or name voices "Microsoft Hemant - Hindi (India)". */
+  const pickVoiceForLocale = (
+    voices: SpeechSynthesisVoice[],
+    wantCode: string,
+    displayName: string
+  ): SpeechSynthesisVoice | undefined => {
+    const norm = (l: string) => l.toLowerCase().replace(/_/g, "-");
+    const want = norm(wantCode);
+    const prefix = want.split("-")[0] || "en";
+
+    const nameHints: Record<string, RegExp[]> = {
+      hi: [/hindi/i, /hemant/i, /kartik/i, /devanagari/i, /hi[\s_-]?in/i],
+      ta: [/tamil/i, /ta[\s_-]?in/i],
+      te: [/telugu/i],
+      ml: [/malayalam/i],
+      mr: [/marathi/i],
+      kn: [/kannada/i],
+      bn: [/bengali/i, /bangla/i],
+      gu: [/gujarati/i],
+      pa: [/punjabi/i],
+    };
+    const hints = nameHints[prefix] || [];
+
+    let v = voices.find((x) => norm(x.lang) === want);
+    if (v) return v;
+    v = voices.find((x) => norm(x.lang).startsWith(`${prefix}-`));
+    if (v) return v;
+    for (const re of hints) {
+      v = voices.find((x) => re.test(x.name));
+      if (v) return v;
+    }
+    if (displayName.length > 2) {
+      const short = displayName.slice(0, 4);
+      v = voices.find((x) => x.name.toLowerCase().includes(short.toLowerCase()));
+      if (v) return v;
+    }
+    return voices.find((x) => norm(x.lang).startsWith(prefix));
+  };
+
+  const waitForSpeechVoices = (): Promise<SpeechSynthesisVoice[]> => {
+    return new Promise((resolve) => {
+      if (!window.speechSynthesis) {
+        resolve([]);
+        return;
+      }
+      const pick = () => window.speechSynthesis.getVoices();
+      const first = pick();
+      if (first.length > 0) {
+        resolve(first);
+        return;
+      }
+      const onVoices = () => {
+        const v = pick();
+        if (v.length > 0) {
+          window.speechSynthesis.removeEventListener("voiceschanged", onVoices);
+          resolve(v);
+        }
+      };
+      window.speechSynthesis.addEventListener("voiceschanged", onVoices);
+      window.setTimeout(() => {
+        window.speechSynthesis.removeEventListener("voiceschanged", onVoices);
+        resolve(pick());
+      }, 2800);
+    });
+  };
+
+  const speakText = async (text: string, onEnd?: () => void): Promise<boolean> => {
     if (!window.speechSynthesis) {
       toast.error("Text-to-speech not supported in this browser");
       return false;
     }
     window.speechSynthesis.cancel();
+    const voices = await waitForSpeechVoices();
     const utt = new SpeechSynthesisUtterance(text);
 
-    // Try to find a voice that matches the selected language
-    const voices = window.speechSynthesis.getVoices();
-    const langPrefix = lang.split("-")[0].toLowerCase();
-    const exact = voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase());
-    const partial = voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix));
-    const matched = exact || partial;
+    const norm = (l: string) => l.toLowerCase().replace(/_/g, "-");
+    const langPrefix = norm(lang).split("-")[0] || "en";
+
+    const matched = pickVoiceForLocale(voices, lang, langName);
 
     if (matched) {
       utt.voice = matched;
       utt.lang = matched.lang;
     } else {
-      // No exact voice — still speak in the selected language code (do NOT fall back to English content).
       utt.lang = lang;
       if (langPrefix !== "en") {
-        toast(`No native ${langName} voice installed — using closest available.`, { icon: "🔊" });
+        toast(
+          `No ${langName} text-to-speech voice matched. In Windows: Settings → Time & language → Speech → add Hindi. Use Chrome or Edge for best Indic support.`,
+          { icon: "🔊", duration: 8000 }
+        );
       }
     }
 
@@ -210,9 +277,11 @@ const ResultsPage = () => {
       return;
     }
     const bullets = analysisResult?.summary || [];
-    const text = `Report summary. ${bullets.join(". ")}.`;
-    const ok = speakText(text, () => setReadingSummary(false));
-    if (ok) setReadingSummary(true);
+    const text = bullets.join(". ");
+    void (async () => {
+      const ok = await speakText(text, () => setReadingSummary(false));
+      if (ok) setReadingSummary(true);
+    })();
   };
 
   const [readingFull, setReadingFull] = useState(false);
@@ -223,8 +292,10 @@ const ResultsPage = () => {
       return;
     }
     const text = analysisResult?.fullReportText || analysisResult?.aiExplanation || "";
-    const ok = speakText(text, () => setReadingFull(false));
-    if (ok) setReadingFull(true);
+    void (async () => {
+      const ok = await speakText(text, () => setReadingFull(false));
+      if (ok) setReadingFull(true);
+    })();
   };
 
   // Typing-effect for AI response
