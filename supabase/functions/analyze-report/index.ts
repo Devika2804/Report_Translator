@@ -21,9 +21,9 @@ serve(async (req) => {
       )
     }
 
-    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')
-    if (!GROQ_API_KEY) {
-      throw new Error('GROQ_API_KEY is not set')
+    const XAI_API_KEY = Deno.env.get('XAI_API_KEY')
+    if (!XAI_API_KEY) {
+      throw new Error('XAI_API_KEY is not set')
     }
 
     const targetLanguage = language || 'English'
@@ -151,36 +151,35 @@ Extract every single finding from above and return this JSON in ${targetLanguage
 
 REMINDER: ALL text must be in ${targetLanguage} language. Return ONLY the JSON object.`
 
-    // Call Groq API (free, fast)
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    // Call xAI API
+    const aiResponse = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${XAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'grok-2-latest',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 6000,
-        response_format: { type: 'json_object' }
+        max_tokens: 4000
       }),
     })
 
-    if (!groqResponse.ok) {
-      const errText = await groqResponse.text()
-      console.error('Groq API error:', errText)
-      throw new Error(`Groq API failed: ${groqResponse.status}`)
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text()
+      console.error('xAI API error:', errText)
+      throw new Error(`xAI API failed: ${aiResponse.status} - ${errText}`)
     }
 
-    const groqData = await groqResponse.json()
-    const rawContent = groqData.choices?.[0]?.message?.content
+    const aiData = await aiResponse.json()
+    const rawContent = aiData.choices?.[0]?.message?.content
 
     if (!rawContent) {
-      throw new Error('No response from Groq AI')
+      throw new Error('No response from xAI')
     }
 
     // Parse the JSON response
