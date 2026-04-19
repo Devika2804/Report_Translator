@@ -21,9 +21,9 @@ serve(async (req) => {
       )
     }
 
-    const XAI_API_KEY = Deno.env.get('XAI_API_KEY')
-    if (!XAI_API_KEY) {
-      throw new Error('XAI_API_KEY is not set')
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY is not set')
     }
 
     const targetLanguage = language || 'English'
@@ -151,28 +151,29 @@ Extract every single finding from above and return this JSON in ${targetLanguage
 
 REMINDER: ALL text must be in ${targetLanguage} language. Return ONLY the JSON object.`
 
-    // Call xAI API
-    const aiResponse = await fetch('https://api.x.ai/v1/chat/completions', {
+    // Call Groq API (free, fast)
+    const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${XAI_API_KEY}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-2-latest',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 4000
+        max_tokens: 6000,
+        response_format: { type: 'json_object' }
       }),
     })
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text()
-      console.error('xAI API error:', errText)
-      throw new Error(`xAI API failed: ${aiResponse.status} - ${errText}`)
+      console.error('Groq API error:', errText)
+      throw new Error(`Groq API failed: ${aiResponse.status} - ${errText}`)
     }
 
     const aiData = await aiResponse.json()
