@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2, Download, Share2, Clipboard, Lightbulb, ChevronDown, History, FileText,
   Calendar, Mail, Phone, MessageSquare, Headphones, ShieldCheck, Mic, MessageCircle, X, Send,
-  Plus, Bot, Info, Volume2, Square, AlertCircle, Loader2,
+  Plus, Bot, Info, Volume2, Square, AlertCircle, Loader2, Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { PageTransition } from "@/components/PageTransition";
 
 import { recentReports } from "@/lib/sampleData";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import { generateReportPDF } from "@/lib/generatePDF";
+import { downloadReport } from "@/utils/downloadReport";
 import { useReportStore } from "@/store/reportStore";
 import { syncLanguageFromSessionStorage } from "@/lib/hydrateLanguageFromSession";
 import {
@@ -41,6 +41,164 @@ const faqs = [
 ];
 
 const promptChips = ["What does this mean?", "Should I be worried?", "What next?"];
+
+const worryConfig = {
+  Low: {
+    color: '#10b981',
+    bgColor: '#ecfdf5',
+    borderColor: '#6ee7b7',
+    trackColor: '#d1fae5',
+    fillColor: '#10b981',
+    fillPercent: 20,
+    icon: '🟢',
+    label: 'Low Risk',
+    sublabel: 'No immediate concerns detected',
+    emoji: '✓',
+    pulseColor: 'rgba(16,185,129,0.3)',
+  },
+  Mild: {
+    color: '#f59e0b',
+    bgColor: '#fffbeb',
+    borderColor: '#fcd34d',
+    trackColor: '#fef3c7',
+    fillColor: '#f59e0b',
+    fillPercent: 45,
+    icon: '🟡',
+    label: 'Mild Concern',
+    sublabel: 'Monitor with your doctor',
+    emoji: '!',
+    pulseColor: 'rgba(245,158,11,0.3)',
+  },
+  Moderate: {
+    color: '#f97316',
+    bgColor: '#fff7ed',
+    borderColor: '#fdba74',
+    trackColor: '#ffedd5',
+    fillColor: '#f97316',
+    fillPercent: 65,
+    icon: '🟠',
+    label: 'Moderate',
+    sublabel: 'Follow-up recommended within 2–4 weeks',
+    emoji: '!!',
+    pulseColor: 'rgba(249,115,22,0.3)',
+  },
+  High: {
+    color: '#ef4444',
+    bgColor: '#fef2f2',
+    borderColor: '#fca5a5',
+    trackColor: '#fee2e2',
+    fillColor: '#ef4444',
+    fillPercent: 90,
+    icon: '🔴',
+    label: 'High Alert',
+    sublabel: 'See a doctor as soon as possible',
+    emoji: '!!!',
+    pulseColor: 'rgba(239,68,68,0.3)',
+  },
+};
+
+const WorryLevelCard = ({ worryLevel, worryReason }: { worryLevel: string; worryReason: string }) => {
+  const config = worryConfig[worryLevel as keyof typeof worryConfig] || worryConfig.Low;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      style={{
+        background: config.bgColor,
+        border: `1.5px solid ${config.borderColor}`,
+        borderRadius: '16px',
+        padding: '20px 24px',
+        marginBottom: '24px'
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Activity size={18} color={config.color} />
+          <span style={{ fontWeight: 700, fontSize: '15px', color: '#0f172a' }}>Worry Level</span>
+          <span style={{ fontSize: '12px', color: '#94a3b8', background: '#f1f5f9', padding: '2px 8px', borderRadius: '20px' }}>AI estimate only</span>
+        </div>
+      </div>
+
+      {/* Main badge row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+        
+        {/* Animated pulse dot */}
+        <div style={{ position: 'relative', width: '48px', height: '48px', flexShrink: 0 }}>
+          <motion.div
+            animate={{ scale: [1, 1.6, 1], opacity: [0.4, 0, 0.4] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background: config.pulseColor,
+            }}
+          />
+          <div style={{
+            position: 'absolute',
+            inset: '8px',
+            borderRadius: '50%',
+            background: config.color,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <span style={{ color: 'white', fontWeight: 800, fontSize: '13px' }}>{config.emoji}</span>
+          </div>
+        </div>
+
+        {/* Label and sublabel */}
+        <div>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: config.color, lineHeight: 1 }}>
+            {config.label}
+          </div>
+          <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+            {worryReason || config.sublabel}
+          </div>
+        </div>
+      </div>
+
+      {/* Risk meter bar */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>Low</span>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>Mild</span>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>Moderate</span>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>High</span>
+        </div>
+        <div style={{
+          height: '10px',
+          borderRadius: '999px',
+          background: 'linear-gradient(90deg, #10b981 0%, #f59e0b 40%, #f97316 65%, #ef4444 100%)',
+          position: 'relative',
+          overflow: 'visible',
+        }}>
+          {/* Needle/indicator */}
+          <motion.div
+            initial={{ left: '0%' }}
+            animate={{ left: `${config.fillPercent}%` }}
+            transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
+            style={{
+              position: 'absolute',
+              top: '-4px',
+              transform: 'translateX(-50%)',
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              background: 'white',
+              border: `3px solid ${config.color}`,
+              boxShadow: `0 0 0 4px ${config.pulseColor}`,
+            }}
+          />
+        </div>
+      </div>
+
+    </motion.div>
+  );
+};
 
 const ResultsPage = () => {
   const navigate = useNavigate();
@@ -324,30 +482,26 @@ const ResultsPage = () => {
     }
   }, [analysisResult]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!analysisResult) return;
     try {
-      generateReportPDF({
-        language: selectedLanguage,
-        summaryBullets: analysisResult.summary,
-        explanation: analysisResult.aiExplanation,
-        findings: analysisResult.findings.map((f) => ({
-          term: f.medicalTerm,
-          plain: f.plainExplanation,
-        })),
-        worryLevel: analysisResult.worryLevel,
-        agePercent: analysisResult.ageRelatedPercent,
-        envPercent: analysisResult.environmentalPercent,
-        ageBullets: analysisResult.ageRelatedFactors,
-        envBullets: analysisResult.environmentalFactors,
-        fullReport: analysisResult.fullReportText,
-        nextSteps: analysisResult.nextSteps,
-      });
-      toast.success("Report downloaded successfully!");
+      toast.loading("Generating PDF...", { id: "pdf-toast" });
+      
+      const reportDate = new Date().toLocaleDateString();
+      const reportId = Math.random().toString(36).substr(2, 6).toUpperCase();
+      
+      await downloadReport(
+        analysisResult,
+        selectedLanguage,
+        reportDate,
+        reportId
+      );
+      
+      toast.success("Report downloaded successfully!", { id: "pdf-toast" });
       setShowDeliveryPopup(true);
     } catch (e) {
       console.error(e);
-      toast.error("Could not generate PDF. Please try again.");
+      toast.error("Could not generate PDF. Please try again.", { id: "pdf-toast" });
     }
   };
 
@@ -362,25 +516,7 @@ const ResultsPage = () => {
     );
   }
 
-  const worryStyle: Record<string, { bg: string; text: string; emoji: string; border: string; dot: string }> = {
-    Low:      { bg: "bg-success-light",     text: "text-success",     emoji: "🟢", border: "border-success/30",     dot: "bg-success" },
-    Mild:     { bg: "bg-warning-light",     text: "text-warning",     emoji: "🟡", border: "border-warning/30",     dot: "bg-warning" },
-    Moderate: { bg: "bg-orange-100",        text: "text-orange-700",  emoji: "🟠", border: "border-orange-300",     dot: "bg-orange-500" },
-    High:     { bg: "bg-destructive/10",    text: "text-destructive", emoji: "🔴", border: "border-destructive/30", dot: "bg-destructive" },
-  };
-  const worryColorToLevel: Record<string, keyof typeof worryStyle> = {
-    green: "Low",
-    yellow: "Mild",
-    orange: "Moderate",
-    red: "High",
-  };
-  const levelFromColor = analysisResult.worryColor
-    ? worryColorToLevel[analysisResult.worryColor]
-    : undefined;
-  const wl =
-    (levelFromColor && worryStyle[levelFromColor]) ||
-    worryStyle[analysisResult.worryLevel] ||
-    worryStyle.Mild;
+
   const agePct = Math.max(0, Math.min(100, analysisResult.ageRelatedPercent || 0));
   const envPct = Math.max(0, Math.min(100, analysisResult.environmentalPercent || 0));
   const dominantCause = agePct >= envPct ? "Age-Related" : "Environmental";
@@ -545,23 +681,7 @@ const ResultsPage = () => {
             </motion.div>
 
             {/* Worry Level */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-card rounded-2xl shadow-card-soft p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <h3 className="font-bold">Worry Level</h3>
-                <Info className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">AI estimate only</span>
-              </div>
-              <motion.div
-                initial={{ x: -30, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.3 }}
-                className={`h-12 rounded-full ${wl.bg} border ${wl.border} flex items-center px-5`}
-              >
-                <div className={`w-3 h-3 rounded-full ${wl.dot} mr-3 animate-pulse`} />
-                <span className={`font-semibold ${wl.text}`}>{wl.emoji} {analysisResult.worryLevel}</span>
-                <span className="ml-3 text-sm text-foreground/70">— {analysisResult.worryReason}</span>
-              </motion.div>
-            </motion.div>
+            <WorryLevelCard worryLevel={analysisResult.worryLevel} worryReason={analysisResult.worryReason} />
 
             {/* Cause Insights */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-card rounded-2xl shadow-card-soft p-6 space-y-4">
