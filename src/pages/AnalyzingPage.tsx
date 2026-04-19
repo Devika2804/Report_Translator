@@ -13,6 +13,7 @@ import {
   isDecodexApiAnalysis,
   mapDecodexApiToAnalysisResult,
 } from "@/lib/mapDecodexAnalysisResponse";
+import { formatSupabaseFunctionError } from "@/lib/formatSupabaseFunctionError";
 
 const statusMessages = [
   "Scanning for medical terminology...",
