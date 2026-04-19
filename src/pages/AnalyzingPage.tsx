@@ -64,6 +64,11 @@ const AnalyzingPage = () => {
         useReportStore.getState().selectedLanguage ||
         "English";
 
+      if (!reportText || reportText.trim().length < 10) {
+        navigate("/input");
+        return;
+      }
+
       console.log("Calling Edge Function for analysis...");
 
       const { data, error } = await supabase.functions.invoke("analyze-report", {
@@ -73,7 +78,10 @@ const AnalyzingPage = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMsg = await formatSupabaseFunctionError(error, "analyze-report");
+        throw new Error(errorMsg);
+      }
 
       // The edge function might return the data directly or wrapped in a 'fullReport'
       // We'll normalize it to match the store's AnalysisResult interface

@@ -18,7 +18,12 @@ export async function formatSupabaseFunctionError(
       if (res.status === 404 || body?.code === "NOT_FOUND") {
         return `Edge Function "${functionName}" is not on this Supabase project (404). ${deploySteps(functionName)}`;
       }
-      if (typeof body?.error === "string") return body.error;
+      if (typeof body?.error === "string") {
+        if (typeof body.details === "string") {
+          return `${body.error} (${body.details})`;
+        }
+        return body.error;
+      }
     } catch {
       /* ignore JSON parse errors */
     }
