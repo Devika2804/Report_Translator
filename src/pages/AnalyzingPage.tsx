@@ -42,6 +42,12 @@ const AnalyzingPage = () => {
     setStep(0);
     setProgress(0);
 
+    // If no report text, redirect back
+    if (!reportText) {
+      navigate("/input");
+      return;
+    }
+
     // Step animation while we wait
     const t1 = setTimeout(() => setStep(1), 1200);
     const t2 = setTimeout(() => setStep(2), 2400);
@@ -52,209 +58,114 @@ const AnalyzingPage = () => {
     );
 
     try {
-      if (!reportText?.trim()) {
-        throw new Error("No report text found. Please go back and enter your report.");
-      }
-
       syncLanguageFromSessionStorage();
       const selectedLanguage =
         localStorage.getItem("decodex_language") ||
-        useReportStore.getState().language ||
+        useReportStore.getState().selectedLanguage ||
         "English";
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      console.log("Calling Claude API for analysis...");
 
-      let userName = localStorage.getItem("user_name") || "";
-      let userPhone = localStorage.getItem("user_phone") || "";
-      let userEmail = localStorage.getItem("user_email") || "";
+      const apiCall = fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // API key is handled by infrastructure — do NOT add here
+        },
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-20240620", // Using current best model
+          max_tokens: 2000,
+          system: `You are a medical report decoder. The user has provided a medical report. 
+Read it carefully and analyze ONLY what is written in that specific report.
+Do NOT use any default or example data. 
+Respond ONLY with valid JSON — no markdown, no code fences, no explanation before or after.
+Use ${selectedLanguage} language for all explanation text values.
 
-      if (!userName && user?.user_metadata) {
-        userName =
-          user.user_metadata.full_name ||
-          user.user_metadata.name ||
-          user.user_metadata.display_name ||
-          "";
-      }
-      if (!userPhone && user?.user_metadata) {
-        userPhone = user.user_metadata.phone || "";
-      }
-      if (!userEmail) {
-        userEmail = user?.email || "";
-      }
+Return this exact JSON structure:
+{
+  "summary": ["3 to 5 bullet points summarizing THIS specific report"],
+  "aiExplanation": "one calm paragraph explaining THIS report in plain language",
+  "findings": [
+    {"medicalTerm": "exact term from the report", "plainExplanation": "plain English explanation"}
+  ],
+  "whatThisMeans": "short paragraph about what THIS report means for the patient",
+  "nextSteps": ["step 1 based on THIS report", "step 2", "step 3"],
+  "worryLevel": "Low or Mild or Moderate or High — based on THIS report",
+  "worryReason": "one line explaining the worry level for THIS report",
+  "ageRelatedPercent": 60,
+  "environmentalPercent": 40,
+  "ageRelatedFactors": ["factors relevant to THIS report"],
+  "environmentalFactors": ["factors relevant to THIS report"],
+  "reportType": "detected report type from THIS report e.g. Blood Test CBC or Chest X-Ray or MRI Brain",
+  "detailedFindings": [
+    {
+      "finding": "finding name",
+      "medicalTerm": "medical term",
+      "severity": "Normal or Mild or Moderate or Severe",
+      "plainExplanation": "plain explanation",
+      "actionRequired": "what action is needed"
+    }
+  ],
+  "clinicalInterpretation": [
+    "paragraph 1: what the overall report shows",
+    "paragraph 2: what this means for daily life",
+    "paragraph 3: what the patient should watch out for"
+  ],
+  "medicationsToAvoid": ["items to avoid based on THIS report"],
+  "lifestyleHelps": ["helpful items based on THIS report"],
+  "doctorQuestions": [
+    "question 1 relevant to THIS report",
+    "question 2",
+    "question 3",
+    "question 4",
+    "question 5"
+  ],
+  "fullReportText": "complete formatted report text suitable for text-to-speech reading"
+}`,
+          messages: [
+            {
+              role: "user",
+              content: `Please analyze this medical report and return the JSON as instructed:\n\n${reportText}`
+            }
+          ]
+        })
+      });
 
-      if (!userName || !userPhone) {
-        const { data: profile } = await supabase
-          .from("users")
-          .select("name, phone, email")
-          .eq("id", user?.id)
-          .maybeSingle();
-
-        if (profile) {
-          userName = userName || profile.name || "";
-          userPhone = userPhone || profile.phone || "";
-          userEmail = userEmail || profile.email || "";
-        }
-      }
-
-      console.log("Sending to edge function:", { userName, userPhone, userEmail });
-
-      console.log("Using mock analysis data for demo...");
-
-      // ✅ DYNAMIC MOCK SYSTEM FOR DEMO
-      const lowerText = (reportText || "").toLowerCase();
-      const lowerLang = selectedLanguage.toLowerCase();
-      const isHindi = lowerLang.includes("hindi");
-      const isTamil = lowerLang.includes("tamil");
-
-      let category: "chest" | "blood" | "brain" | "general" = "general";
-      if (lowerText.includes("chest") || lowerText.includes("x-ray") || lowerText.includes("lung") || lowerText.includes("heart")) category = "chest";
-      else if (lowerText.includes("blood") || lowerText.includes("cbc") || lowerText.includes("hemoglobin") || lowerText.includes("sugar")) category = "blood";
-      else if (lowerText.includes("brain") || lowerText.includes("head") || lowerText.includes("skull") || lowerText.includes("mri")) category = "brain";
-
-      const getMockData = () => {
-        if (category === "chest") {
-          if (isHindi) return {
-            summary: ["आपका हृदय थोड़ा बड़ा हुआ दिखाई देता है।", "फेफड़ों में तरल पदार्थ के हल्के संकेत हैं।"],
-            worryLevel: "Mild",
-            findings: [{ term: "Cardiomegaly", explanation: "हृदय थोड़ा बड़ा हो गया है" }, { term: "Pleural Effusion", explanation: "फेफड़ों में तरल पदार्थ का थोड़ा जमाव" }],
-            aiExplanation: "आपकी रिपोर्ट हृदय के हल्के विस्तार और तरल पदार्थ के छोटे जमाव को दिखाती है। यह आपात स्थिति नहीं है।",
-            whatThisMeans: "चिकित्सा अनुवर्ती कार्रवाई की आवश्यकता हो सकती है।",
-            nextSteps: ["हृदय रोग विशेषज्ञ से परामर्श लें", "स्वस्थ जीवनशैली बनाए रखें"],
-            possibleCauses: { agePercent: 40, envPercent: 60, ageRelated: ["प्राकृतिक उम्र बढ़ने"], environmental: ["गतिहीन जीवनशैली"] },
-            worryColor: "yellow"
-          };
-          if (isTamil) return {
-            summary: ["உங்கள் இதயம் சற்று விரிவடைந்து காணப்படுகிறது.", "நுரையீரலில் லேசான நீர் கோர்ப்பு அறிகுறிகள் உள்ளன."],
-            worryLevel: "Mild",
-            findings: [{ term: "Cardiomegaly", explanation: "இதயம் சற்று பெரிதாகியுள்ளது" }, { term: "Pleural Effusion", explanation: "நுரையீரலில் சிறிய அளவில் நீர் கோர்ப்பு" }],
-            aiExplanation: "உங்கள் அறிக்கை இதயம் மற்றும் நுரையீரலில் லேசான மாற்றங்களைக் காட்டுகிறது. இது அவசரநிலை அல்ல.",
-            whatThisMeans: "மருத்துவ தொடர் நடவடிக்கை தேவைப்படலாம்.",
-            nextSteps: ["இதய நிபுணரை அணுகவும்", "ஆரோக்கியமான வாழ்க்கை முறை"],
-            possibleCauses: { agePercent: 40, envPercent: 60, ageRelated: ["வயது முதிர்வு"], environmental: ["உடல் உழைப்பற்ற வாழ்க்கை"] },
-            worryColor: "yellow"
-          };
-          return {
-            summary: ["Your heart appears slightly enlarged.", "There are mild signs of fluid in the lungs."],
-            worryLevel: "Mild",
-            findings: [{ term: "Cardiomegaly", explanation: "Heart is slightly enlarged" }, { term: "Pleural Effusion", explanation: "Small amount of fluid in lungs" }],
-            aiExplanation: "Your report shows mild enlargement of the heart and small fluid buildup. This is not an emergency.",
-            whatThisMeans: "Medical follow-up may be needed.",
-            nextSteps: ["Consult a cardiologist", "Maintain healthy lifestyle"],
-            possibleCauses: { agePercent: 40, envPercent: 60, ageRelated: ["Natural aging"], environmental: ["Sedentary lifestyle"] },
-            worryColor: "yellow"
-          };
-        }
-        
-        if (category === "blood") {
-          if (isHindi) return {
-            summary: ["हीमोग्लोबिन का स्तर थोड़ा कम है।", "रक्त शर्करा सामान्य से अधिक है।"],
-            worryLevel: "Moderate",
-            findings: [{ term: "Anemia", explanation: "रक्त में आयरन की कमी" }, { term: "Hyperglycemia", explanation: "रक्त में उच्च शर्करा स्तर" }],
-            aiExplanation: "आपकी रक्त रिपोर्ट में आयरन की कमी और उच्च शर्करा का संकेत मिलता है।",
-            whatThisMeans: "आपको अपने आहार में बदलाव और डॉक्टर की सलाह की आवश्यकता है।",
-            nextSteps: ["आहार विशेषज्ञ से मिलें", "शर्करा के स्तर की निगरानी करें"],
-            possibleCauses: { agePercent: 30, envPercent: 70, ageRelated: ["चयापचय में बदलाव"], environmental: ["आहार और तनाव"] },
-            worryColor: "orange"
-          };
-          if (isTamil) return {
-            summary: ["ஹீமோகுளோபின் அளவு சற்று குறைவாக உள்ளது.", "இரத்த சர்க்கரை அளவு சாதாரணமாக இருப்பதை விட அதிகமாக உள்ளது."],
-            worryLevel: "Moderate",
-            findings: [{ term: "Anemia", explanation: "இரத்தத்தில் இரும்புச்சத்து குறைபாடு" }, { term: "Hyperglycemia", explanation: "இரத்தத்தில் அதிக சர்க்கரை அளவு" }],
-            aiExplanation: "உங்கள் இரத்த அறிக்கையில் இரும்புச்சத்து குறைபாடு மற்றும் அதிக சர்க்கரை இருப்பதைக் காட்டுகிறது.",
-            whatThisMeans: "உணவு முறை மாற்றம் மற்றும் மருத்துவ ஆலோசனை அவசியம்.",
-            nextSteps: ["உணவு நிபுணரை சந்திக்கவும்", "சர்க்கரை அளவை கண்காணிக்கவும்"],
-            possibleCauses: { agePercent: 30, envPercent: 70, ageRelated: ["வளர்சிதை மாற்ற மாற்றங்கள்"], environmental: ["உணவு மற்றும் மன அழுத்தம்"] },
-            worryColor: "orange"
-          };
-          return {
-            summary: ["Hemoglobin level is slightly low.", "Blood sugar is higher than normal."],
-            worryLevel: "Moderate",
-            findings: [{ term: "Anemia", explanation: "Iron deficiency in blood" }, { term: "Hyperglycemia", explanation: "High blood sugar level" }],
-            aiExplanation: "Your blood report suggests iron deficiency and high sugar levels.",
-            whatThisMeans: "You need dietary changes and medical advice.",
-            nextSteps: ["Consult a nutritionist", "Monitor sugar levels"],
-            possibleCauses: { agePercent: 30, envPercent: 70, ageRelated: ["Metabolic changes"], environmental: ["Diet and stress"] },
-            worryColor: "orange"
-          };
-        }
-
-        if (category === "brain") {
-          if (isHindi) return {
-            summary: ["मस्तिष्क के ऊतकों में हल्के सफेद धब्बे दिखाई देते हैं।", "उम्र के अनुसार हल्का संकुचन सामान्य है।"],
-            worryLevel: "Mild",
-            findings: [{ term: "White Matter Changes", explanation: "मस्तिष्क में रक्त प्रवाह में छोटे बदलाव" }, { term: "Atrophy", explanation: "मस्तिष्क का हल्का संकुचन" }],
-            aiExplanation: "मस्तिष्क की एमआरआई रिपोर्ट में उम्र से संबंधित सामान्य बदलाव दिखाई देते हैं।",
-            whatThisMeans: "ये निष्कर्ष अक्सर उम्र बढ़ने के साथ देखे जाते हैं।",
-            nextSteps: ["न्यूरोलॉजिस्ट के साथ नियमित जांच", "मानसिक रूप से सक्रिय रहें"],
-            possibleCauses: { agePercent: 80, envPercent: 20, ageRelated: ["सामान्य उम्र बढ़ना"], environmental: ["रक्तचाप"] },
-            worryColor: "yellow"
-          };
-          if (isTamil) return {
-            summary: ["மூளை திசுக்களில் சிறிய மாற்றங்கள் காணப்படுகின்றன.", "வயது தொடர்பான லேசான சுருக்கம் காணப்படுகிறது."],
-            worryLevel: "Mild",
-            findings: [{ term: "White Matter Changes", explanation: "மூளை இரத்த ஓட்டத்தில் சிறிய மாற்றங்கள்" }, { term: "Atrophy", explanation: "மூளையின் லேசான சுருக்கம்" }],
-            aiExplanation: "மூளை எம்ஆர்ஐ அறிக்கை வயது தொடர்பான பொதுவான மாற்றங்களைக் காட்டுகிறது.",
-            whatThisMeans: "இவை பொதுவாக வயது முதிர்வுடன் தொடர்புடையவை.",
-            nextSteps: ["நரம்பியல் நிபுணருடன் ஆலோசனை", "மூளைக்கு வேலை தரும் பயிற்சிகள்"],
-            possibleCauses: { agePercent: 80, envPercent: 20, ageRelated: ["இயற்கையான வயது முதிர்வு"], environmental: ["இரத்த அழுத்தம்"] },
-            worryColor: "yellow"
-          };
-          return {
-            summary: ["Small spots in brain tissue detected.", "Mild shrinkage consistent with age."],
-            worryLevel: "Mild",
-            findings: [{ term: "White Matter Changes", explanation: "Small changes in brain blood flow" }, { term: "Atrophy", explanation: "Mild brain shrinkage" }],
-            aiExplanation: "The brain MRI suggests normal age-related changes.",
-            whatThisMeans: "These findings are common as we grow older.",
-            nextSteps: ["Consult a neurologist", "Stay mentally active"],
-            possibleCauses: { agePercent: 80, envPercent: 20, ageRelated: ["Normal aging"], environmental: ["Blood pressure"] },
-            worryColor: "yellow"
-          };
-        }
-
-        // General fallback
-        return {
-          summary: ["General health analysis completed.", "No major issues detected."],
-          worryLevel: "Low",
-          findings: [{ term: "Normal Findings", explanation: "Everything looks within expected range" }],
-          aiExplanation: "Your report appears normal for your profile.",
-          whatThisMeans: "Continue your current healthy lifestyle.",
-          nextSteps: ["Regular checkup", "Stay active"],
-          possibleCauses: { agePercent: 50, envPercent: 50, ageRelated: ["Lifestyle"], environmental: ["Genetics"] },
-          worryColor: "green"
-        };
-      };
-
-      const baseData = getMockData();
-      const mockData = {
-        ...baseData,
-        fullReport: {
-          reportType: category.toUpperCase() + " REPORT",
-          detailedFindings: [],
-          clinicalInterpretation: [baseData.aiExplanation],
-          avoidList: [],
-          helpList: [],
-          doctorQuestions: []
-        }
-      };
-
-      // Simulate the analysis process with a delay
-      await new Promise((r) => setTimeout(r, 4000));
+      // Run API call and minimum 4-second animation together
+      const minDelay = new Promise(resolve => setTimeout(resolve, 4000));
+      const [response] = await Promise.all([apiCall, minDelay]);
 
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       clearInterval(progInt);
 
-      const payload = extractAnalysisPayload(mockData);
-      const analysis = mapDecodexApiToAnalysisResult(payload as any);
-      
-      setAnalysisResult(analysis);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}. This may be a CORS issue if called directly from the browser.`);
+      }
 
-      localStorage.setItem("decodex_analysis", JSON.stringify(mockData));
+      const data = await response.json();
+      
+      // Extract the text content from Claude's response
+      const rawText = data.content
+        .filter((block: any) => block.type === 'text')
+        .map((block: any) => block.text)
+        .join('');
+
+      // Strip any accidental markdown code fences
+      const cleanJson = rawText
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+
+      const result = JSON.parse(cleanJson);
+      
+      // ✅ Store the REAL result from THIS user's report
+      setAnalysisResult(result);
+      localStorage.setItem("decodex_analysis", JSON.stringify(result));
       localStorage.setItem("decodex_report_text", reportText);
       
       setProgress(100);
       navigate("/results");
+
     } catch (e: any) {
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       clearInterval(progInt);

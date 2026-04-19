@@ -1,72 +1,54 @@
-// Decodex report store
-import { create } from "zustand";
-
-export interface Finding {
-  medicalTerm: string;
-  plainExplanation: string;
-}
-
-export interface DetailedFinding {
-  finding: string;
-  medicalTerm: string;
-  severity: "Normal" | "Mild" | "Moderate" | "Severe";
-  plainExplanation: string;
-  actionRequired: string;
-}
+// src/store/reportStore.ts
+import { create } from 'zustand';
 
 export interface AnalysisResult {
   summary: string[];
   aiExplanation: string;
-  findings: Finding[];
+  findings: { medicalTerm: string; plainExplanation: string }[];
   whatThisMeans: string;
   nextSteps: string[];
-  worryLevel: "Low" | "Mild" | "Moderate" | "High";
+  worryLevel: 'Low' | 'Mild' | 'Moderate' | 'High';
   worryReason: string;
   ageRelatedPercent: number;
   environmentalPercent: number;
   ageRelatedFactors: string[];
   environmentalFactors: string[];
   reportType: string;
-  detailedFindings: DetailedFinding[];
+  detailedFindings: {
+    finding: string;
+    medicalTerm: string;
+    severity: 'Normal' | 'Mild' | 'Moderate' | 'Severe';
+    plainExplanation: string;
+    actionRequired: string;
+  }[];
   clinicalInterpretation: string[];
   medicationsToAvoid: string[];
   lifestyleHelps: string[];
   doctorQuestions: string[];
   fullReportText: string;
-  /** Optional; when set (e.g. from Edge Function), can drive badge styling alongside `worryLevel`. */
-  worryColor?: "green" | "yellow" | "orange" | "red";
+  worryColor?: 'green' | 'yellow' | 'orange' | 'red';
 }
 
 interface ReportStore {
   reportText: string;
-  language: string;       // human-readable, e.g. "English"
-  languageCode: string;   // BCP-47, e.g. "en-US"
+  selectedLanguage: string;
   analysisResult: AnalysisResult | null;
   analysisError: string | null;
-  isSample: boolean;
-  userName: string;
-  phoneNumber: string;
-  setReportText: (text: string, isSample?: boolean) => void;
-  setLanguage: (name: string, code: string) => void;
-  setAnalysisResult: (result: AnalysisResult | null) => void;
-  setAnalysisError: (err: string | null) => void;
-  setUserContact: (name: string, phone: string) => void;
-  reset: () => void;
+  setReportText: (text: string) => void;
+  setLanguage: (lang: string) => void;
+  setAnalysisResult: (result: AnalysisResult) => void;
+  setAnalysisError: (error: string | null) => void;
+  clearReport: () => void;
 }
 
 export const useReportStore = create<ReportStore>((set) => ({
-  reportText: "",
-  language: "English",
-  languageCode: "en-US",
+  reportText: '',
+  selectedLanguage: 'English',
   analysisResult: null,
   analysisError: null,
-  isSample: false,
-  userName: "",
-  phoneNumber: "",
-  setReportText: (text, isSample = false) => set({ reportText: text, isSample }),
-  setLanguage: (name, code) => set({ language: name, languageCode: code }),
+  setReportText: (text) => set({ reportText: text }),
+  setLanguage: (lang) => set({ selectedLanguage: lang }),
   setAnalysisResult: (result) => set({ analysisResult: result, analysisError: null }),
-  setAnalysisError: (err) => set({ analysisError: err }),
-  setUserContact: (name, phone) => set({ userName: name, phoneNumber: phone }),
-  reset: () => set({ reportText: "", analysisResult: null, analysisError: null, isSample: false }),
+  setAnalysisError: (error) => set({ analysisError: error }),
+  clearReport: () => set({ reportText: '', analysisResult: null, analysisError: null }),
 }));

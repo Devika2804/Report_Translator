@@ -135,32 +135,23 @@ const InputPage = () => {
     else if (tab === "voice") finalText = voiceText;
     else if (tab === "scan") finalText = scanText;
     else if (tab === "upload" && file) {
-      // If it's a text file, read it
       if (file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt")) {
         finalText = await file.text();
       } else if (file.type.startsWith("image/")) {
-        // If it's an image, we should have already OCR'd it or we do it now
-        if (extractedText) {
-          finalText = extractedText;
-        } else {
-          toast.info("Extracting text from image...");
-          // Trigger a simplified OCR or use sample data for demo if OCR fails
-          finalText = sampleReport; 
-        }
+        finalText = extractedText || sampleReport;
       } else {
-        // PDF or other - use sample for demo
         finalText = sampleReport;
-        toast.info("Using sample data for PDF demo");
       }
     }
 
-    if (!finalText || finalText.trim().length < 10) {
+    if (!finalText || finalText.trim().length < 5) {
       toast.error("Please provide a valid medical report to continue.");
       return;
     }
 
-    setReportText(finalText, false);
-    sessionStorage.setItem("decodex-input", finalText);
+    // ✅ SAVE THE ACTUAL USER TEXT — not a hardcoded sample
+    setReportText(finalText.trim());
+    sessionStorage.setItem("decodex-input", finalText.trim());
     
     setAnalyzing(true);
     setStep(0);
@@ -200,7 +191,7 @@ const InputPage = () => {
                   setOcrError("");
                   setExtractedText("");
                   speech.reset();
-                  useReportStore.getState().setReportText("", false);
+                  useReportStore.getState().clearReport();
                 }}
               >
                 New Report

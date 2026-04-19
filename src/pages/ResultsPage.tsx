@@ -44,78 +44,27 @@ const promptChips = ["What does this mean?", "Should I be worried?", "What next?
 
 const ResultsPage = () => {
   const navigate = useNavigate();
-  const analysisResult = useReportStore((s) => s.analysisResult);
-  const reportText = useReportStore((s) => s.reportText);
-  const language = useReportStore((s) => s.language);
-  const languageCode = useReportStore((s) => s.languageCode);
-  const userName = useReportStore((s) => s.userName);
-  const phoneNumber = useReportStore((s) => s.phoneNumber);
+  const { analysisResult, reportText, selectedLanguage } = useReportStore();
   const setAnalysisResult = useReportStore((s) => s.setAnalysisResult);
   const setReportText = useReportStore((s) => s.setReportText);
-
-  const saveReportToSupabase = async () => {
-    try {
-      const ar = useReportStore.getState().analysisResult;
-      const { data, error } = await supabase
-        .from("reports")
-        .insert([
-          {
-            name: userName || "Unknown",
-            phone: phoneNumber || "0000000000",
-            summary: ar?.summary?.join(" ") || "",
-            severity: ar?.worryLevel || "Unknown",
-          },
-        ]);
-
-      if (error) {
-        console.error("❌ Supabase Error:", error);
-      } else {
-        console.log("✅ Report saved:", data);
-      }
-    } catch (err) {
-      console.error("🔥 Insert failed:", err);
-    }
-  };
 
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    syncLanguageFromSessionStorage();
-    const stored = localStorage.getItem("decodex_analysis");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        console.log("Results: parsed decodex_analysis from localStorage", parsed);
-        const payload = extractAnalysisPayload(parsed);
-        if (isDecodexApiAnalysis(payload)) {
-          setAnalysisResult(mapDecodexApiToAnalysisResult(payload));
+    if (!analysisResult) {
+      const stored = localStorage.getItem("decodex_analysis");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setAnalysisResult(parsed);
+        } catch (e) {
+          navigate("/input");
         }
-      } catch (e) {
-        console.error("Failed to parse analysis:", e);
-        setHydrated(true);
-        toast.error("No analysis found. Please submit a report first.");
+      } else {
         navigate("/input");
-        return;
       }
     }
-    const rt = localStorage.getItem("decodex_report_text");
-    if (rt) setReportText(rt, false);
-    console.log("Stored in localStorage:", localStorage.getItem("decodex_analysis"));
-    setHydrated(true);
-  }, [navigate, setAnalysisResult, setReportText]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    if (!useReportStore.getState().analysisResult) {
-      toast.error("No analysis found. Please submit a report first.");
-      navigate("/input");
-    }
-  }, [hydrated, navigate]);
-  useEffect(() => {
-    if (analysisResult && userName && phoneNumber) {
-      saveReportToSupabase();
-    }
-  }, [analysisResult, userName, phoneNumber]);
+  }, [analysisResult, navigate, setAnalysisResult]);
 
   const [tab, setTab] = useState<ResultTab>("explain");
   const [showAsk, setShowAsk] = useState(false);
@@ -130,8 +79,7 @@ const ResultsPage = () => {
   const [analyzedToastShown, setAnalyzedToastShown] = useState(false);
   const [showDeliveryPopup, setShowDeliveryPopup] = useState(false);
 
-  const lang = languageCode || "en-US";
-  const langName = language || "English";
+  const lang = "en-US"; // Default for TTS if not matched
   const speech = useSpeechRecognition({ lang, interimResults: true });
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -247,16 +195,16 @@ const ResultsPage = () => {
     const norm = (l: string) => l.toLowerCase().replace(/_/g, "-");
     const langPrefix = norm(lang).split("-")[0] || "en";
 
-    const matched = pickVoiceForLocale(voices, lang, langName);
+    const matched = pickVoiceForLocale(voices, "en-US", selectedLanguage);
 
     if (matched) {
       utt.voice = matched;
       utt.lang = matched.lang;
     } else {
       utt.lang = lang;
-      if (langPrefix !== "en") {
+      if (selectedLanguage !== "English") {
         toast(
-          `No ${langName} text-to-speech voice matched. In Windows: Settings → Time & language → Speech → add Hindi. Use Chrome or Edge for best Indic support.`,
+          `No ${selectedLanguage} text-to-speech voice matched. In Windows: Settings → Time & language → Speech → add your language.`,
           { icon: "🔊", duration: 8000 }
         );
       }
@@ -313,59 +261,59 @@ const ResultsPage = () => {
   };
 
   const submitAsk = async () => {
-    if (!askInput.trim()) return;
-    const q = askInput.trim();
+    if (!askInput.trim() || !analysisResult) return;
+    const question = askInput.trim();
     setIsThinking(true);
     setAskResponse("");
     setTypedResponse("");
     
     try {
-      console.log("Using mock response for 'ask-doubt'...");
+      console.log("Sending question to Claude with report context...");
       
-      // Simulate network delay
-      await new Promise(r => setTimeout(r, 2000));
-      
-      const lowerLang = langName.toLowerCase();
-      const isHindi = lowerLang.includes("hindi");
-      const isTamil = lowerLang.includes("tamil");
-      
-      let mockAnswers: Record<string, string>;
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // API key is handled by infrastructure
+        },
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-20240620",
+          max_tokens: 400,
+          system: `You are a compassionate medical assistant. 
+The patient had their report analyzed. Answer their question using the context below.
+Keep your answer under 100 words. Be calm, simple, and reassuring.
+Use ${selectedLanguage} for the response.
 
-      if (isHindi) {
-        mockAnswers = {
-          "What does this mean?": "इसका मतलब है कि आपकी रिपोर्ट में कुछ मामूली निष्कर्ष हैं जिनके बारे में डॉक्टर से चर्चा की जानी चाहिए, लेकिन उन्हें आमतौर पर आपातकालीन नहीं माना जाता है।",
-          "Should I be worried?": "विश्लेषण 'हल्का' चिंता स्तर इंगित करता है। जबकि आपको एक पेशेवर के साथ अनुवर्ती कार्रवाई करनी चाहिए, तत्काल घबराहट का कोई कारण नहीं है।",
-          "What next?": "आपको इन निष्कर्षों पर विस्तार से चर्चा करने के लिए हृदय रोग विशेषज्ञ के साथ नियमित नियुक्ति निर्धारित करनी चाहिए।",
-          "इसका क्या मतलब है?": "इसका मतलब है कि आपकी रिपोर्ट में कुछ मामूली निष्कर्ष हैं जिनके बारे में डॉक्टर से चर्चा की जानी चाहिए, लेकिन उन्हें आमतौर पर आपातकालीन नहीं माना जाता है।",
-          "क्या मुझे चिंतित होना चाहिए?": "विश्लेषण 'हल्का' चिंता स्तर इंगित करता है। जबकि आपको एक पेशेवर के साथ अनुवर्ती कार्रवाई करनी चाहिए, तत्काल घबराहट का कोई कारण नहीं है।",
-          "आगे क्या?": "आपको इन निष्कर्षों पर विस्तार से चर्चा करने के लिए हृदय रोग विशेषज्ञ के साथ नियमित नियुक्ति निर्धारित करनी चाहिए।",
-        };
-      } else if (isTamil) {
-        mockAnswers = {
-          "What does this mean?": "இதன் பொருள் உங்கள் அறிக்கையில் சில சிறிய கண்டுபிடிப்புகள் உள்ளன, அவை மருத்துவரிடம் விவாதிக்கப்பட வேண்டும், ஆனால் அவை பொதுவாக அவசரநிலையாகக் கருதப்படுவதில்லை.",
-          "Should I be worried?": "பகுப்பாய்வு 'லேசான' கவலை அளவைக் குறிக்கிறது. நீங்கள் ஒரு நிபுணருடன் தொடர் நடவடிக்கை எடுக்க வேண்டும் என்றாலும், உடனடி பயத்திற்கு எந்த காரணமும் இல்லை.",
-          "What next?": "இந்த கண்டுபிடிப்புகளை விரிவாக விவாதிக்க நீங்கள் ஒரு இதய நிபுணருடன் வழக்கமான சந்திப்பைத் திட்டமிட வேண்டும்.",
-          "இதன் பொருள் என்ன?": "இதன் பொருள் உங்கள் அறிக்கையில் சில சிறிய கண்டுபிடிப்புகள் உள்ளன, அவை மருத்துவரிடம் விவாதிக்கப்பட வேண்டும், ஆனால் அவை பொதுவாக அவசரநிலையாகக் கருதப்படுவதில்லை.",
-          "நான் கவலைப்பட வேண்டுமா?": "பகுப்பாய்வு 'லேசான' கவலை அளவைக் குறிக்கிறது. நீங்கள் ஒரு நிபுணருடன் தொடர் நடவடிக்கை எடுக்க வேண்டும் என்றாலும், உடனடி பயத்திற்கு எந்த காரணமும் இல்லை.",
-          "அடுத்து என்ன?": "இந்த கண்டுபிடிப்புகளை விரிவாக விவாதிக்க நீங்கள் ஒரு இதய நிபுணருடன் வழக்கமான சந்திப்பைத் திட்டமிட வேண்டும்.",
-        };
-      } else {
-        mockAnswers = {
-          "What does this mean?": "It means there are some minor findings in your report that should be discussed with a doctor, but they are not typically considered emergencies.",
-          "Should I be worried?": "The analysis indicates a 'Mild' worry level. While you should follow up with a professional, there is no immediate cause for alarm.",
-          "What next?": "You should schedule a routine appointment with a cardiologist to discuss these findings in detail.",
-        };
+REPORT CONTEXT:
+${reportText}
+
+ANALYSIS SUMMARY:
+${analysisResult.summary.join('. ')}
+
+WORRY LEVEL: ${analysisResult.worryLevel}`,
+          messages: [{ role: "user", content: question }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get response from AI");
       }
+
+      const data = await response.json();
+      const answer = data.content
+        .filter((block: any) => block.type === 'text')
+        .map((block: any) => block.text)
+        .join('');
       
-      const resp = mockAnswers[q] || `Based on your report, "${q}" is a good question. In a real scenario, the AI would provide a detailed medical explanation here. For this demo, we're showing that the chat interface is working!`;
-      
-      setAskResponse(resp);
+      setAskResponse(answer);
       setIsThinking(false);
-      animateResponse(resp);
+      animateResponse(answer);
     } catch (e: any) {
-      console.error("ask-doubt mock error", e);
+      console.error("ask-doubt error", e);
       setIsThinking(false);
-      toast.error("Could not get a response. Please try again.");
+      const errorMsg = "I'm having trouble connecting right now. Please try again.";
+      setAskResponse(errorMsg);
+      animateResponse(errorMsg);
     }
   };
 
@@ -380,11 +328,17 @@ const ResultsPage = () => {
     }
   };
 
+  useEffect(() => {
+    if (analysisResult) {
+      // Logic for post-analysis could go here
+    }
+  }, [analysisResult]);
+
   const handleDownload = () => {
     if (!analysisResult) return;
     try {
       generateReportPDF({
-        language: langName,
+        language: selectedLanguage,
         summaryBullets: analysisResult.summary,
         explanation: analysisResult.aiExplanation,
         findings: analysisResult.findings.map((f) => ({
@@ -659,21 +613,94 @@ const ResultsPage = () => {
               </div>
             </motion.div>
 
-            {/* WhatsApp Delivery Confirmation (UI only — sending handled via n8n automation) */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="rounded-2xl p-4 border bg-success-light border-success/30 flex items-center gap-3"
-            >
-              <div className="w-10 h-10 rounded-xl bg-success/20 flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 className="w-5 h-5 text-success" />
+            {/* Detailed Findings Table */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="bg-card rounded-2xl shadow-card-soft p-6 overflow-hidden">
+              <h3 className="font-bold mb-4">Detailed Clinical Findings</h3>
+              <div className="overflow-x-auto -mx-6 px-6">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="py-3 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Finding</th>
+                      <th className="py-3 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Medical Term</th>
+                      <th className="py-3 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Severity</th>
+                      <th className="py-3 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action Required</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {analysisResult.detailedFindings.map((row, i) => (
+                      <tr key={i} className="hover:bg-muted/30 transition-colors">
+                        <td className="py-4 px-2 text-sm font-medium">{row.finding}</td>
+                        <td className="py-4 px-2 text-xs font-mono text-muted-foreground">{row.medicalTerm}</td>
+                        <td className="py-4 px-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            row.severity === 'Normal' ? 'bg-success/10 text-success' :
+                            row.severity === 'Mild' ? 'bg-warning/10 text-warning' :
+                            row.severity === 'Moderate' ? 'bg-orange-100 text-orange-700' :
+                            'bg-destructive/10 text-destructive'
+                          }`}>
+                            {row.severity}
+                          </span>
+                        </td>
+                        <td className="py-4 px-2 text-xs text-muted-foreground">{row.actionRequired}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-success">Delivered via WhatsApp</p>
-                <p className="text-xs text-success/80 mt-0.5">
-                  Your report has been automatically delivered to your WhatsApp{phoneNumber ? ` (${phoneNumber})` : ""}.
-                </p>
+            </motion.div>
+
+            {/* Clinical Interpretation */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="bg-card rounded-2xl shadow-card-soft p-6">
+              <h3 className="font-bold mb-4">Clinical Interpretation</h3>
+              <div className="space-y-4">
+                {analysisResult.clinicalInterpretation.map((para, i) => (
+                  <p key={i} className="text-sm leading-relaxed text-foreground/80">{para}</p>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Medications and Lifestyle */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-card rounded-2xl shadow-card-soft p-6">
+                <h4 className="text-sm font-bold text-destructive mb-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> To Avoid
+                </h4>
+                <ul className="space-y-2">
+                  {analysisResult.medicationsToAvoid.map((item, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <X className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }} className="bg-card rounded-2xl shadow-card-soft p-6">
+                <h4 className="text-sm font-bold text-success mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Helpful Steps
+                </h4>
+                <ul className="space-y-2">
+                  {analysisResult.lifestyleHelps.map((item, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            </div>
+
+            {/* Questions for Doctor */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="bg-primary-light rounded-2xl p-6">
+              <h3 className="font-bold mb-4 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-primary" /> Questions to ask your Doctor
+              </h3>
+              <div className="space-y-3">
+                {analysisResult.doctorQuestions.map((q, i) => (
+                  <div key={i} className="flex gap-3 bg-white/60 p-3 rounded-xl text-sm italic">
+                    <span className="text-primary font-bold">Q:</span>
+                    <span>{q}</span>
+                  </div>
+                ))}
               </div>
             </motion.div>
 
@@ -689,7 +716,7 @@ const ResultsPage = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-bold mb-1">Take your report with you</h3>
-                  <p className="text-sm text-white/80">Download a polished PDF{phoneNumber ? " — WhatsApp delivery is automatic." : " or share manually."}</p>
+                  <p className="text-sm text-white/80">Download a polished PDF for your records or to share with your physician.</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
                   <Button
@@ -905,7 +932,7 @@ const ResultsPage = () => {
 
                 <div className="flex gap-2 flex-wrap my-3">
                   {(() => {
-                    const lowerLang = langName.toLowerCase();
+                    const lowerLang = selectedLanguage.toLowerCase();
                     if (lowerLang.includes("hindi")) {
                       return ["इसका क्या मतलब है?", "क्या मुझे चिंतित होना चाहिए?", "आगे क्या?"];
                     } else if (lowerLang.includes("tamil")) {
