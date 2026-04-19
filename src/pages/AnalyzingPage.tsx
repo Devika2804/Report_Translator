@@ -64,99 +64,39 @@ const AnalyzingPage = () => {
         useReportStore.getState().selectedLanguage ||
         "English";
 
-      console.log("Calling Claude API for analysis...");
+      console.log("Calling Edge Function for analysis...");
 
-      const apiCall = fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // API key is handled by infrastructure — do NOT add here
+      const { data, error } = await supabase.functions.invoke("analyze-report", {
+        body: {
+          reportText,
+          language: selectedLanguage,
         },
-        body: JSON.stringify({
-          model: "claude-3-5-sonnet-20240620", // Using current best model
-          max_tokens: 2000,
-          system: `You are a medical report decoder. The user has provided a medical report. 
-Read it carefully and analyze ONLY what is written in that specific report.
-Do NOT use any default or example data. 
-Respond ONLY with valid JSON — no markdown, no code fences, no explanation before or after.
-Use ${selectedLanguage} language for all explanation text values.
-
-Return this exact JSON structure:
-{
-  "summary": ["3 to 5 bullet points summarizing THIS specific report"],
-  "aiExplanation": "one calm paragraph explaining THIS report in plain language",
-  "findings": [
-    {"medicalTerm": "exact term from the report", "plainExplanation": "plain English explanation"}
-  ],
-  "whatThisMeans": "short paragraph about what THIS report means for the patient",
-  "nextSteps": ["step 1 based on THIS report", "step 2", "step 3"],
-  "worryLevel": "Low or Mild or Moderate or High — based on THIS report",
-  "worryReason": "one line explaining the worry level for THIS report",
-  "ageRelatedPercent": 60,
-  "environmentalPercent": 40,
-  "ageRelatedFactors": ["factors relevant to THIS report"],
-  "environmentalFactors": ["factors relevant to THIS report"],
-  "reportType": "detected report type from THIS report e.g. Blood Test CBC or Chest X-Ray or MRI Brain",
-  "detailedFindings": [
-    {
-      "finding": "finding name",
-      "medicalTerm": "medical term",
-      "severity": "Normal or Mild or Moderate or Severe",
-      "plainExplanation": "plain explanation",
-      "actionRequired": "what action is needed"
-    }
-  ],
-  "clinicalInterpretation": [
-    "paragraph 1: what the overall report shows",
-    "paragraph 2: what this means for daily life",
-    "paragraph 3: what the patient should watch out for"
-  ],
-  "medicationsToAvoid": ["items to avoid based on THIS report"],
-  "lifestyleHelps": ["helpful items based on THIS report"],
-  "doctorQuestions": [
-    "question 1 relevant to THIS report",
-    "question 2",
-    "question 3",
-    "question 4",
-    "question 5"
-  ],
-  "fullReportText": "complete formatted report text suitable for text-to-speech reading"
-}`,
-          messages: [
-            {
-              role: "user",
-              content: `Please analyze this medical report and return the JSON as instructed:\n\n${reportText}`
-            }
-          ]
-        })
       });
 
-      // Run API call and minimum 4-second animation together
-      const minDelay = new Promise(resolve => setTimeout(resolve, 4000));
-      const [response] = await Promise.all([apiCall, minDelay]);
+      if (error) throw error;
 
-      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
-      clearInterval(progInt);
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}. This may be a CORS issue if called directly from the browser.`);
-      }
-
-      const data = await response.json();
-      
-      // Extract the text content from Claude's response
-      const rawText = data.content
-        .filter((block: any) => block.type === 'text')
-        .map((block: any) => block.text)
-        .join('');
-
-      // Strip any accidental markdown code fences
-      const cleanJson = rawText
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-
-      const result = JSON.parse(cleanJson);
+      // The edge function might return the data directly or wrapped in a 'fullReport'
+      // We'll normalize it to match the store's AnalysisResult interface
+      const result = {
+        summary: data.summary || [],
+        aiExplanation: data.aiExplanation || "",
+        findings: data.findings || [],
+        whatThisMeans: data.whatThisMeans || "",
+        nextSteps: data.nextSteps || [],
+        worryLevel: data.worryLevel || "Mild",
+        worryReason: data.worryReason || "",
+        ageRelatedPercent: data.possibleCauses?.agePercent || 50,
+        environmentalPercent: data.possibleCauses?.envPercent || 50,
+        ageRelatedFactors: data.possibleCauses?.ageRelated || [],
+        environmentalFactors: data.possibleCauses?.environmental || [],
+        reportType: data.fullReport?.reportType || data.reportType || "Medical Report",
+        detailedFindings: data.fullReport?.detailedFindings || data.detailedFindings || [],
+        clinicalInterpretation: data.fullReport?.clinicalInterpretation || data.clinicalInterpretation || [],
+        medicationsToAvoid: data.fullReport?.avoidList || data.medicationsToAvoid || [],
+        lifestyleHelps: data.fullReport?.helpList || data.lifestyleHelps || [],
+        doctorQuestions: data.fullReport?.doctorQuestions || data.doctorQuestions || [],
+        fullReportText: data.fullReportText || data.aiExplanation || "",
+      };
       
       // ✅ Store the REAL result from THIS user's report
       setAnalysisResult(result);

@@ -268,42 +268,20 @@ const ResultsPage = () => {
     setTypedResponse("");
     
     try {
-      console.log("Sending question to Claude with report context...");
+      console.log("Sending question to Edge Function with report context...");
       
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // API key is handled by infrastructure
+      const { data, error } = await supabase.functions.invoke("ask-doubt", {
+        body: {
+          question,
+          reportText,
+          summary: analysisResult.summary,
+          language: selectedLanguage,
         },
-        body: JSON.stringify({
-          model: "claude-3-5-sonnet-20240620",
-          max_tokens: 400,
-          system: `You are a compassionate medical assistant. 
-The patient had their report analyzed. Answer their question using the context below.
-Keep your answer under 100 words. Be calm, simple, and reassuring.
-Use ${selectedLanguage} for the response.
-
-REPORT CONTEXT:
-${reportText}
-
-ANALYSIS SUMMARY:
-${analysisResult.summary.join('. ')}
-
-WORRY LEVEL: ${analysisResult.worryLevel}`,
-          messages: [{ role: "user", content: question }]
-        })
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response from AI");
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-      const answer = data.content
-        .filter((block: any) => block.type === 'text')
-        .map((block: any) => block.text)
-        .join('');
+      const answer = data.answer || "I couldn't generate a response. Please try again.";
       
       setAskResponse(answer);
       setIsThinking(false);
