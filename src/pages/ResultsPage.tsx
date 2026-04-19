@@ -194,9 +194,20 @@ const ResultsPage = () => {
     const utt = new SpeechSynthesisUtterance(text);
 
     const norm = (l: string) => l.toLowerCase().replace(/_/g, "-");
-    const langPrefix = norm(lang).split("-")[0] || "en";
+    
+    let wantCode = "en-US";
+    const lowerLang = selectedLanguage.toLowerCase();
+    if (lowerLang.includes("hindi")) wantCode = "hi-IN";
+    else if (lowerLang.includes("tamil")) wantCode = "ta-IN";
+    else if (lowerLang.includes("malayalam")) wantCode = "ml-IN";
+    else if (lowerLang.includes("telugu")) wantCode = "te-IN";
+    else if (lowerLang.includes("kannada")) wantCode = "kn-IN";
+    else if (lowerLang.includes("marathi")) wantCode = "mr-IN";
+    else if (lowerLang.includes("bengali") || lowerLang.includes("bangla")) wantCode = "bn-IN";
 
-    const matched = pickVoiceForLocale(voices, "en-US", selectedLanguage);
+    const langPrefix = norm(wantCode).split("-")[0] || "en";
+
+    const matched = pickVoiceForLocale(voices, wantCode, selectedLanguage);
 
     if (matched) {
       utt.voice = matched;

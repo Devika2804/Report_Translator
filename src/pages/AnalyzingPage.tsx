@@ -80,7 +80,10 @@ const AnalyzingPage = () => {
       const result = {
         summary: data.summary || [],
         aiExplanation: data.aiExplanation || "",
-        findings: data.findings || [],
+        findings: (data.findings || []).map((f: any) => ({
+          medicalTerm: f.medicalTerm || f.term || "",
+          plainExplanation: f.plainExplanation || f.explanation || ""
+        })),
         whatThisMeans: data.whatThisMeans || "",
         nextSteps: data.nextSteps || [],
         worryLevel: data.worryLevel || "Mild",
@@ -90,7 +93,13 @@ const AnalyzingPage = () => {
         ageRelatedFactors: data.possibleCauses?.ageRelated || [],
         environmentalFactors: data.possibleCauses?.environmental || [],
         reportType: data.fullReport?.reportType || data.reportType || "Medical Report",
-        detailedFindings: data.fullReport?.detailedFindings || data.detailedFindings || [],
+        detailedFindings: (data.fullReport?.detailedFindings || data.detailedFindings || []).map((f: any) => ({
+          finding: f.finding || "",
+          medicalTerm: f.medicalTerm || f.term || "",
+          severity: f.severity || "Normal",
+          plainExplanation: f.plainExplanation || f.explanation || "",
+          actionRequired: f.actionRequired || f.action || ""
+        })),
         clinicalInterpretation: data.fullReport?.clinicalInterpretation || data.clinicalInterpretation || [],
         medicationsToAvoid: data.fullReport?.avoidList || data.medicationsToAvoid || [],
         lifestyleHelps: data.fullReport?.helpList || data.lifestyleHelps || [],
