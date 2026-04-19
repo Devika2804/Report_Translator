@@ -64,6 +64,7 @@ const ResultsPage = () => {
         navigate("/input");
       }
     }
+    setHydrated(true);
   }, [analysisResult, navigate, setAnalysisResult]);
 
   const [tab, setTab] = useState<ResultTab>("explain");
