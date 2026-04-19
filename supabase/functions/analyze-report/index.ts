@@ -173,7 +173,18 @@ REMINDER: ALL text must be in ${targetLanguage} language. Return ONLY the JSON o
     if (!aiResponse.ok) {
       const errText = await aiResponse.text()
       console.error('Groq API error:', errText)
-      throw new Error(`Groq API failed: ${aiResponse.status} - ${errText}`)
+      
+      let cleanMsg = errText;
+      try {
+        const errJson = JSON.parse(errText);
+        if (errJson.error && errJson.error.message) {
+          cleanMsg = errJson.error.message;
+        }
+      } catch (e) {
+        // Not JSON, keep raw text
+      }
+
+      throw new Error(`Groq API failed: ${aiResponse.status} - ${cleanMsg}`)
     }
 
     const aiData = await aiResponse.json()
